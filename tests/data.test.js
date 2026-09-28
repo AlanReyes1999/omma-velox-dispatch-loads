@@ -111,17 +111,17 @@ test('reducer: revision-2 patch updates only untouched fields and never touches 
   delete v2.config.finalCountsPct;
   v2.omma.meta.file = 'Excel extracto de loads OMMA (referencia inicial)';
   v2.asg['2040-031'] = { c: 'C2', t: '2026-09-28T07:40:00Z', by: 'AR' };
-  const op = { id: 'p1', type: 'reseed', rev: 3, patch: S.patchFrom(2), txt: 'x' };
+  const op = { id: 'p1', type: 'reseed', rev: S.REV, patch: S.patchFrom(2), txt: 'x' };
   let r = R.apply(v2, [op]);
   assert.deepEqual(r.applied, ['p1']);
   const c = r.state.config;
   assert.equal(c.schedule.prefillStart, '2026-09-23T18:00');
   assert.equal(c.countFrom, '2026-09-22T12:00');
-  assert.deepEqual(c.po, { '100M': 'SPA00021226', '4070': 'PO-24918', '2040': 'PO-MINE' });
+  assert.deepEqual(c.po, { '100M': 'SPA00021226', '4070': 'SPA00021227', '2040': 'PO-MINE' });
   assert.equal(c.finalCountsPct, 80);
   assert.equal(r.state.omma.meta.file, 'OMMA loads extract (initial reference)');
   assert.equal(Object.keys(r.state.asg).length, 38);         // check marks untouched
-  assert.equal(r.state.seedRev, 3);
+  assert.equal(r.state.seedRev, S.REV);
   r = R.apply(r.state, [Object.assign({}, op, { id: 'p2' })]);
   assert.deepEqual(r.applied, []);                           // once per revision
   assert.equal(R.applyPatch({ config: {}, meta: null }, { path: 'config.__proto__.x', from: '', to: 1 }), false);
@@ -147,7 +147,7 @@ test('reducer: final counts confirmation, range assign and its undo', () => {
 });
 
 test('reducer: an automatic starting point is decided against the live state', () => {
-  const full = () => ({ type: 'reseed', rev: 3, auto: true, from: 2, patch: S.patchFrom(2), config: S.clone(S.DEFAULT_CONFIG), asg: S.baselineAsg(), txt: 'x' });
+  const full = () => ({ type: 'reseed', rev: S.REV, auto: true, from: 2, patch: S.patchFrom(2), config: S.clone(S.DEFAULT_CONFIG), asg: S.baselineAsg(), txt: 'x' });
   /* revision 2 on the server with someone's work after its reseed: a client with a stale cache sends the
      automatic op; the server patches instead of replacing, so no check mark is lost */
   const live = S.initialState();
@@ -159,7 +159,8 @@ test('reducer: an automatic starting point is decided against the live state', (
   assert.deepEqual(r.applied, ['r1']);
   assert.equal(Object.keys(r.state.asg).length, 39, 'check marks kept');
   assert.equal(r.state.config.schedule.prefillStart, '2026-09-23T18:00');
-  assert.equal(r.state.config.po['4070'], 'PO-24918');
+  assert.equal(r.state.config.po['4070'], 'SPA00021227');
+  assert.equal(r.state.config.po['2040'], 'PO-24918');
   /* nobody worked since the last starting point → full starting point */
   const idle = S.initialState(); idle.seedRev = 2; idle.log = [{ t: '2026-09-28T07:40:00Z', type: 'reseed', n: 37 }];
   idle.asg['2040-031'] = { c: '', t: '2026-09-28T07:50:00Z' };
@@ -171,8 +172,43 @@ test('reducer: an automatic starting point is decided against the live state', (
   r = R.apply(old, [Object.assign(full(), { id: 'r3' })]);
   assert.deepEqual(r.applied, []);
   assert.equal(Object.keys(r.state.asg).length, 1);
-  r = R.apply(old, [{ id: 'r4', type: 'reseed', rev: 3, config: S.clone(S.DEFAULT_CONFIG), asg: S.baselineAsg() }]);
+  r = R.apply(old, [{ id: 'r4', type: 'reseed', rev: S.REV, config: S.clone(S.DEFAULT_CONFIG), asg: S.baselineAsg() }]);
   assert.equal(Object.keys(r.state.asg).length, 37);
+});
+
+test('reducer: revision-3 update corrects the POs and keeps every check mark', () => {
+  /* the live state: revision 2 loaded 37 check marks, someone removed 2040-030, then the revision-3 patch */
+  const live = S.initialState();
+  live.seedRev = 3;
+  live.config.po = { '100M': 'SPA00021226', '4070': 'PO-24918', '2040': 'PO-1236' };
+  delete live.asg['2040-030'];
+  live.log = [
+    { t: '2026-09-28T06:00:00Z', type: 'reseed', n: 37 },
+    { t: '2026-09-28T06:30:00Z', type: 'unasg', slot: '2040-030' },
+    { t: '2026-09-28T09:10:00Z', type: 'reseed', n: 0, patch: 7 }
+  ];
+  /* work from before a patch still counts: a full starting point would wipe it */
+  assert.equal(R.workedSinceReseed(live.log), true);
+  assert.equal(R.workedSinceReseed(live.log.filter(e => e.type === 'reseed')), false);
+  const op = { id: 'q1', type: 'reseed', rev: S.REV, auto: true, from: 3, patch: S.patchFrom(3), patchTxt: S.patchNote(3),
+    config: S.clone(S.DEFAULT_CONFIG), asg: S.baselineAsg(), txt: 'x' };
+  let r = R.apply(live, [op]);
+  assert.deepEqual(r.applied, ['q1']);
+  assert.deepEqual(r.state.config.po, { '100M': 'SPA00021226', '4070': 'SPA00021227', '2040': 'PO-24918' });
+  assert.equal(Object.keys(r.state.asg).length, 36, 'check marks untouched');
+  assert.ok(!r.state.asg['2040-030']);
+  assert.equal(r.state.seedRev, S.REV);
+  const last = r.state.log[r.state.log.length - 1];
+  assert.equal(last.patch, 2);
+  assert.equal(last.txt, 'POs corrected · 20/40 PO-24918 · 40/70 SPA00021227');
+  /* a PO that dispatch already typed in Plan stays as they left it */
+  const typed = S.clone(live); typed.config.po['2040'] = 'PO-7777';
+  r = R.apply(typed, [Object.assign({}, op, { id: 'q2' })]);
+  assert.equal(r.state.config.po['2040'], 'PO-7777');
+  assert.equal(r.state.config.po['4070'], 'SPA00021227');
+  /* the default design and a new shared state carry the corrected POs */
+  assert.deepEqual(S.DEFAULT_CONFIG.po, { '100M': 'SPA00021226', '4070': 'SPA00021227', '2040': 'PO-24918' });
+  assert.deepEqual(S.patchFrom(4), []);
 });
 
 test('reducer: hostile input is refused', () => {

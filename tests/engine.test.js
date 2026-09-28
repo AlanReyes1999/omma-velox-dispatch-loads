@@ -216,8 +216,8 @@ test('final counts at 80% of loads assigned', () => {
 test('PO per sand: the one in the design wins; otherwise the latest export', () => {
   const def = model();
   assert.equal(def.sands['100M'].po, 'SPA00021226');
-  assert.equal(def.sands['4070'].po, 'PO-24918');
-  assert.equal(def.sands['2040'].po, 'PO-1236');
+  assert.equal(def.sands['4070'].po, 'SPA00021227');
+  assert.equal(def.sands['2040'].po, 'PO-24918');
   assert.equal(def.sands['4070'].poSrc, 'manual');
   const base = model(st => { st.config.po = {}; st.omma.loads.forEach(l => { l.po = l.s === '2040' ? 'PO-A' : 'PO-B'; }); });
   assert.equal(base.sands['2040'].po, 'PO-A');

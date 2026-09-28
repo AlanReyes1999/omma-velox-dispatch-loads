@@ -25,10 +25,11 @@
   function emptyState() {
     return { schema: 1, v: 0, config: null, asg: {}, ord: 0, stage: [], fc: null, omma: { loads: [], meta: null }, log: [], opIds: [], updatedAt: null };
   }
-  /* has anyone worked since the last starting point was loaded? */
+  /* has anyone worked since the last full starting point was loaded? A patch keeps everyone's work,
+     so it does not start the count again: work from before a patch still counts. */
   function workedSinceReseed(log) {
     let since = 0;
-    (log || []).forEach((e, i) => { if (e && e.type === 'reseed') since = i + 1; });
+    (log || []).forEach((e, i) => { if (e && e.type === 'reseed' && e.patch == null) since = i + 1; });
     return (log || []).slice(since).some(e => e && USER_OPS.includes(e.type));
   }
 
@@ -255,7 +256,7 @@
             state.config = cfg;
             if (meta) state.omma.meta = meta;
             state.seedRev = +op.rev || 0;
-            pushLog(state, { t, type: 'reseed', n: 0, patch: n, by, txt: str(op.txt, 140) });
+            pushLog(state, { t, type: 'reseed', n: 0, patch: n, by, txt: str(op.patchTxt || op.txt, 140) });
             break;
           }
           /* full: design + baseline check marks. Keeps OMMA loads and stage reports. */

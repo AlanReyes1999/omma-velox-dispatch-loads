@@ -2302,12 +2302,12 @@
   }
 
   /* ============================== well starting point ==============================
-     Revision 3 of the starting point: prefill from Sep 23 6:00 PM, POs for every mine, final counts
-     at 80%, and 37 loads already assigned (#38 is next).
-     · A shared state on revision 2 gets a non-destructive patch, automatically: only fields that still
-       hold the old value change and check marks are never touched.
-     · An older state with nobody's work on it gets the full starting point automatically; if there is
-       work, it is offered with a button so nothing is overwritten by surprise. */
+     Revision 4 of the starting point: prefill from Sep 23 6:00 PM, POs for every mine (20/40 PO-24918,
+     100 Mesh SPA00021226, 40/70 SPA00021227), final counts at 80%, and 37 loads already assigned.
+     · A shared state on revision 2 or 3 where someone has worked gets a non-destructive patch,
+       automatically: only fields that still hold the old value change and check marks are never touched.
+     · A state with nobody's work on it gets the full starting point automatically; an older state with
+       work is offered it with a button, so nothing is overwritten by surprise. */
   const R = window.DispatchReducer;
   let seedChecked = false;
   function reseedOp() {
@@ -2325,12 +2325,13 @@
     if (Store.mode !== 'remote' && Store.mode !== 'local') return;
     seedChecked = true;
     const worked = R.workedSinceReseed(S.log);
-    if (!worked || rev === 2) {
+    const patch = Seed.patchFrom(rev);
+    if (!worked || patch.length) {
       bar.hidden = true;
       /* automatic op: the shared state itself picks full starting point (nobody worked) or the patch
          (someone did), so a client with an old copy can never wipe anyone's check marks */
-      Store.dispatch(Object.assign(reseedOp(), { auto: true, from: 2, patch: Seed.patchFrom(2) }));
-      toast(worked ? 'Well setup updated: prefill from Sep 23 6:00 PM · POs for every mine' : 'Starting point loaded: <b>37</b> loads assigned · <b>#38</b> is next · frac Sep 28 6:00 AM');
+      Store.dispatch(Object.assign(reseedOp(), { auto: true, from: rev, patch, patchTxt: Seed.patchNote(rev) }));
+      toast(worked ? 'Well setup updated: ' + esc(Seed.patchNote(rev)) : 'Starting point loaded: <b>37</b> loads assigned · <b>#38</b> is next · frac Sep 28 6:00 AM');
       return;
     }
     bar.hidden = false;

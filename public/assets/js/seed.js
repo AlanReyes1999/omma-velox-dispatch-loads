@@ -53,7 +53,7 @@
     // the 4 loads in the extract (Sep 24–27) are part of the prefill. Empty = every load to the well.
     countFrom: '2026-09-23T18:00',
     // PO per sand for the assignment queue. Empty = taken from the latest OMMA export.
-    po: { '100M': 'SPA00021226', '4070': 'PO-24918', '2040': 'PO-1236' },
+    po: { '100M': 'SPA00021226', '4070': 'SPA00021227', '2040': 'PO-24918' },
     carriers: [
       { id: 'OMMA', name: 'OMMA', tracked: true },
       { id: 'C2', name: 'Carrier 2', tracked: false },
@@ -92,7 +92,7 @@
      No carrier: the queue does not need it. The prefill check marks are stamped evenly across the prefill
      window (Sep 23 6:00 PM → Sep 28 3:00 AM, the last one at 11:30 PM on Sep 27); the 40/70 is stamped
      00:50 on Sep 28, after all of them, so it is #37. */
-  const REV = 3;
+  const REV = 4;
   const OLD_FILE = 'Excel extracto de loads OMMA (referencia inicial)';
   const SEED_FILE = 'OMMA loads extract (initial reference)';
   function baselineAsg() {
@@ -110,19 +110,31 @@
     return out;
   }
 
-  /* Non-destructive update for a shared state already on revision 2: only fields that still hold the
-     revision-2 value change, so anything dispatch edited in Plan stays. Check marks are not touched. */
+  /* Non-destructive update for a shared state already on an earlier revision: only fields that still hold
+     that revision's value change, so anything dispatch edited in Plan stays. Check marks are not touched.
+     · revision 2 → prefill from 6:00 PM, POs for every mine, final counts at 80%
+     · revision 3 → corrected POs: 20/40 is PO-24918 and 40/70 is SPA00021227 */
   function patchFrom(rev) {
-    if (rev !== 2) return [];
-    return [
+    if (rev === 2) return [
       { path: 'config.schedule.prefillStart', from: '2026-09-23T00:00', to: '2026-09-23T18:00' },
       { path: 'config.countFrom', from: '2026-09-23T00:00', to: '2026-09-23T18:00' },
       { path: 'config.po.100M', from: '', to: 'SPA00021226' },
-      { path: 'config.po.4070', from: '', to: 'PO-24918' },
-      { path: 'config.po.2040', from: '', to: 'PO-1236' },
+      { path: 'config.po.4070', from: '', to: 'SPA00021227' },
+      { path: 'config.po.2040', from: '', to: 'PO-24918' },
       { path: 'config.finalCountsPct', from: '', to: 80 },
       { path: 'omma.meta.file', from: OLD_FILE, to: SEED_FILE }
     ];
+    if (rev === 3) return [
+      { path: 'config.po.4070', from: 'PO-24918', to: 'SPA00021227' },
+      { path: 'config.po.2040', from: 'PO-1236', to: 'PO-24918' }
+    ];
+    return [];
+  }
+  /* what the activity log and the notice say when that update is applied */
+  function patchNote(rev) {
+    if (rev === 2) return 'prefill from Sep 23 6:00 PM · POs for every mine';
+    if (rev === 3) return 'POs corrected · 20/40 PO-24918 · 40/70 SPA00021227';
+    return '';
   }
 
   function initialState() {
@@ -144,5 +156,5 @@
     };
   }
 
-  return { DEFAULT_CONFIG, SEED_LOADS, REV, baselineAsg, patchFrom, initialState, clone };
+  return { DEFAULT_CONFIG, SEED_LOADS, REV, baselineAsg, patchFrom, patchNote, initialState, clone };
 });

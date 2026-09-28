@@ -7,12 +7,12 @@ Starting well: **Riley Horned Frog 5** (Velox), 105 stages, 3 sands:
 | Sand | Mine | PO | Stages 1–30 | Stages 31–105 | Prefill |
 |---|---|---|---|---|---|
 | 100 Mesh | Iron Oak 115 | SPA00021226 | 10,000 lb/stg | 90,000 lb/stg · 14 trucks | 6 loads |
-| 40/70 | Iron Oak 115 | PO-24918 | — | 169,000 lb/stg · 26 trucks | — |
-| 20/40 | IronHorse | PO-1236 | 111,000 lb/stg | 20,000 lb/stg · 2 trucks | 30 loads |
+| 40/70 | Iron Oak 115 | SPA00021227 | — | 169,000 lb/stg · 26 trucks | — |
+| 20/40 | IronHorse | PO-24918 | 111,000 lb/stg | 20,000 lb/stg · 2 trucks | 30 loads |
 
 Well total: **24,555,000 lb (12,277.5 tons) ≈ 492 loads** with the payloads from the OMMA extract.
 
-Starting point (Sep 28, 2026): prefill from Sep 23 6:00 PM to Sep 28 3:00 AM, well start Sep 28 6:00 AM and **37 loads already assigned** (30 × 20/40, 6 × 100 Mesh and one 40/70 that went out early by mistake, which is #37). Next up: **#38 · 20/40 · 031 for stage 14**.
+Starting point (Sep 28, 2026): prefill from Sep 23 6:00 PM to Sep 28 3:00 AM, well start Sep 28 6:00 AM and **37 loads already assigned** (30 × 20/40, 6 × 100 Mesh and one 40/70 that went out early by mistake, which is #37). Next up: **#38 · 20/40 · 031 for stage 14** (PO-24918).
 
 **Final counts:** at **80% of loads assigned** (load #394 of 492) the well enters final counts and load assignments have to be confirmed with the frac crew. The Assign tab marks the 80% line on the bar and in the queue; the load that reaches 80% asks for that confirmation first (with the dispatcher's initials) and logs who confirmed and when, for all dispatch to see. Checking off OMMA deliveries in Progress asks the same way, and if assigned loads fall back below the line, crossing it again asks again (Undo does not). The percentage is editable in Plan.
 
@@ -26,7 +26,7 @@ The shared state (check marks, stage reports, design and OMMA loads) lives in **
 
 > Dragging the folder into Netlify (*drag & drop*) does **not** publish the function: the app would open in local mode. Use "Import from Git".
 
-A site that was already running the previous version updates itself on the next deploy. The shared state decides how: if nobody has worked since its last starting point it loads this one whole (the same 37 loads); if someone has, it only updates the prefill start, the POs and the final counts rule and **keeps every check mark**. An older state with work asks a person to confirm before replacing anything.
+A site that was already running the previous version updates itself on the next deploy. The shared state decides how: if nobody has worked since its last starting point it loads this one whole (the same 37 loads); if someone has, it only updates what changed in the design (prefill start, POs, final counts rule) and **keeps every check mark**. A PO someone already typed in Plan is left as they set it. An older state with work asks a person to confirm before replacing anything.
 
 ## Install as an app
 
@@ -100,7 +100,7 @@ All of them change in **Plan → Well design** and apply to all dispatch:
 
 ```bash
 npm install
-npm test            # engine, parser, reducer and function (35 tests)
+npm test            # engine, parser, reducer and function (36 tests)
 npx netlify dev     # app + function at http://localhost:8888
 ```
 
