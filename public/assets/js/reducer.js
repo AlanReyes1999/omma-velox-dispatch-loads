@@ -64,6 +64,7 @@
     if (!isObj(c.schedule) || !okStr(c.schedule.prefillStart, 20) || !okStr(c.schedule.prefillEnd, 20) || !okStr(c.schedule.fracStart, 20)) return false;
     if (c.po != null && (!isObj(c.po) || !Object.keys(c.po).every(k => okStr(c.po[k], 40)))) return false;
     if (c.finalCountsPct != null && !(+c.finalCountsPct >= 1 && +c.finalCountsPct <= 100)) return false;
+    if (c.drivers != null && (!isObj(c.drivers) || (c.drivers.shiftH != null && !(+c.drivers.shiftH >= 4 && +c.drivers.shiftH <= 16)))) return false;
     return true;
   }
 

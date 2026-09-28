@@ -1626,6 +1626,7 @@
     attachCardGlow($('#sandTotals'));
     renderDaysChart();
     renderTrucks();
+    renderDrivers();
     /* the form is not redrawn while someone is in a field: focus would be lost */
     const editing = $('#designForm').contains(document.activeElement);
     if (!ui.draft || (!ui.dirty && !editing)) { ui.draft = Seed.clone(S.config); ui.dirty = false; renderDesignForm(); }
@@ -1707,7 +1708,7 @@
       ] },
       options: {
         indexAxis: 'y',
-        scales: { x: Object.assign(gYf(v => fmt.int(v)), { grid: { color: OMMA.grid } }), y: Object.assign({}, gX, { ticks: Object.assign({}, gX.ticks, { font: { size: 11.5, weight: '700' } }) }) },
+        scales: { x: Object.assign(gYf(v => Number.isInteger(v) ? fmt.int(v) : nf1.format(v)), { grid: { color: OMMA.grid } }), y: Object.assign({}, gX, { ticks: Object.assign({}, gX.ticks, { font: { size: 11.5, weight: '700' } }) }) },
         plugins: {
           crosshair: false,
           tooltip: tt3({
@@ -1731,6 +1732,181 @@
       const q = p.per[s.id];
       return '<div class="cad"><div class="k"><i style="background:' + SAND_COLOR[s.id] + '"></i>' + esc(s.label) + '</div><div class="v">1 every ' + E.fmtDur(q.everyMin) + '</div><div class="s">' + nf1.format(q.loadsPerDay) + ' loads/day · ' + fmt.int(q.lbs) + ' lb/stg</div></div>';
     }).join('');
+  }
+
+  /* ---------- drivers and turn rate ----------
+     E.driverPlan: a driver works one shift a day, a load keeps a driver for its mine's round trip and any
+     driver can take any trip (short trips fill the time long trips leave in a shift). */
+  const SHIFT_COLOR = { D: '#9CCFD8', N: '#3E7C8C' };
+  const TR_COLOR = '#C25151';
+  let DRV = null;
+  function drvPlan() {
+    const sk = selSands().join(',');
+    if (!DRV || DRV.M !== M || DRV.sk !== sk) DRV = { M, sk, p: E.driverPlan(M, { sands: selSands() }) };
+    return DRV.p;
+  }
+  const nDr = n => fmt.int(n) + ' ' + (n === 1 ? 'driver' : 'drivers');
+  const trTxt = v => v == null || !isFinite(v) ? '—' : nf2.format(v);
+  const sandsIn = loads => S.config.sands.filter(s => loads[s.id]).map(s => s.label + ' ' + fmt.int(loads[s.id])).join(' · ');
+  function drvSeg(p) { return Math.max(0, Math.min(p.segs.length - 1, M.well.segIdx >= 0 ? M.well.segIdx : 0)); }
+  function renderDrivers() {
+    const p = drvPlan();
+    const mines = Object.keys(p.tripH);
+    const card = (acc, l, v, sm, s) => '<article class="gcard stot ' + acc + '"><div class="l">' + l + '</div><div class="v">' + v + (sm ? '<small>' + sm + '</small>' : '') + '</div><div class="s">' + s + '</div></article>';
+    const split = d => 'day <b>' + (d.D ? d.D.drivers : 0) + '</b> · night <b>' + (d.N ? d.N.drivers : 0) + '</b>';
+    const td = p.today, pk = p.peak, si = drvSeg(p), sg = p.segs[si];
+    $('#drvKpis').innerHTML =
+      card('a-teal', 'Drivers today · ' + fDayKey(p.todayKey), td ? fmt.int(td.drivers) : '0', td && td.drivers === 1 ? 'driver' : 'drivers',
+        td ? split(td) + ' · <b>' + fmt.int(td.total) + '</b> ' + (td.total === 1 ? 'load' : 'loads') + ' · turn rate <b>' + trTxt(td.tr) + '</b>' : 'No loads to haul today') +
+      card('a-coral', 'Peak day' + (pk ? ' · ' + fDayKey(pk.day) : ''), pk ? fmt.int(pk.drivers) : '—', 'drivers',
+        pk ? '<b>' + fmt.int(pk.total) + '</b> loads · ' + split(pk) + ' · turn rate <b>' + trTxt(pk.tr) + '</b>' : '—') +
+      card('a-lav', 'Turn rate · whole well', trTxt(p.total.tr), 'loads/driver/day',
+        mines.length ? mines.map(m => esc(mineOf(m).name) + ' <b>' + p.perShift[m] + '</b> per shift').join(' · ') + ' · ' + nf2.format(p.H) + ' h shifts' : '—') +
+      (sg ? card('a-mint', 'Per stage · Stg ' + sg.from + '–' + sg.to, nf1.format(sg.driverHoursPerStage), 'driver-hours',
+        '<b>' + nf1.format(sg.loadsPerStage) + '</b> loads per stage · <b>' + fmt.int(sg.onShift) + '</b> on shift at <b>' + nf1.format(sg.pace) + '</b> stg/day') : '');
+    attachCardGlow($('#drvKpis'));
+    renderDrvDays(p);
+    renderDrvHour();
+    renderDrvStage(p);
+  }
+  function renderDrvDays(p) {
+    const days = p.days;
+    $('#drvBadge').textContent = nL(days.length, 'day', 'days');
+    const yI = gYf(v => fmt.int(v));
+    yI.ticks = Object.assign({}, yI.ticks, { precision: 0 });
+    yI.stacked = true;
+    if (!days.some(d => d.drivers > 0)) yI.suggestedMax = 5;
+    chart('pl_drivers', {
+      type: 'bar',
+      data: { labels: days.map(d => fDayKey(d.day)), datasets: [
+        { type: 'bar', label: 'Day shift', stack: 'd', data: days.map(d => d.D ? d.D.drivers : 0), backgroundColor: dim(days.map(() => SHIFT_COLOR.D)), borderRadius: 5, maxBarThickness: 44, order: 2, yAxisID: 'y' },
+        { type: 'bar', label: 'Night shift', stack: 'd', data: days.map(d => d.N ? d.N.drivers : 0), backgroundColor: dim(days.map(() => SHIFT_COLOR.N)), borderRadius: 5, maxBarThickness: 44, order: 2, yAxisID: 'y' },
+        { type: 'line', label: 'Turn rate', data: days.map(d => d.tr), borderColor: TR_COLOR, backgroundColor: TR_COLOR, borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: .25, order: 1, yAxisID: 'y1', spanGaps: true }
+      ] },
+      options: {
+        layout: { padding: { top: 12, right: 40 } },
+        scales: {
+          x: Object.assign({}, gX, { stacked: true }),
+          y: yI,
+          y1: Object.assign(gYf(v => nf1.format(v)), { display: false, position: 'right', grid: { display: false }, beginAtZero: true, suggestedMax: 2 })
+        },
+        plugins: {
+          endLabel: { enabled: true, fmt: v => trTxt(v) },
+          tooltip: tt3({
+            title: it => fDayKey(days[it[0].dataIndex].day),
+            label: c => c.dataset.label === 'Turn rate' ? ' Turn rate: ' + trTxt(c.parsed.y) + ' loads per driver' : ' ' + c.dataset.label + ': ' + nDr(c.parsed.y),
+            rows: i => {
+              const d = days[i];
+              const out = ['Drivers: ' + fmt.int(d.drivers) + ' · loads: ' + fmt.int(d.total) + (d.total ? ' (' + sandsIn(d.loads) + ')' : '')];
+              ['D', 'N'].forEach(k => { const o = d[k]; if (o) out.push((k === 'D' ? 'Day' : 'Night') + ' shift ' + fHour(o.start) + '–' + fHour(o.end) + ': ' + nDr(o.drivers) + ' for ' + nL(o.total, 'load', 'loads')); });
+              Object.keys(d.absorbed).forEach(m => { const n = Math.round(d.absorbed[m]); if (n > 0) out.push(mineOf(m).name + ': ' + nL(n, 'load', 'loads') + ' in time left after longer trips'); });
+              if (d.util != null) out.push('Driver time on trips: ' + Math.round(d.util * 100) + '%');
+              out.push('click shows that day by hour →');
+              return out;
+            }
+          })
+        },
+        onClick: (e, els) => {
+          if (!els || !els.length) return;
+          const d = days[els[0].index];
+          setTimeout(() => { ui.drvRange = 'day'; ui.drvDay = d.day; renderDrvHour(); }, 0);
+        }
+      }
+    });
+    legend('pl_drivers', [{ label: 'Day shift', color: SHIFT_COLOR.D }, { label: 'Night shift', color: SHIFT_COLOR.N }, { label: 'Turn rate', color: TR_COLOR, line: true }]);
+    const pk = p.peak, mines = Object.keys(p.tripH);
+    let read = 'No loads in the plan for these sands.';
+    if (pk && pk.drivers) {
+      read = 'Busiest day <b>' + fDayKey(pk.day) + '</b>: <b>' + fmt.int(pk.drivers) + '</b> drivers for <b>' + fmt.int(pk.total) + '</b> loads, turn rate <b>' + trTxt(pk.tr) + '</b>. ' +
+        mines.map(m => '<b>' + esc(mineOf(m).name) + '</b> ' + E.fmtDur(p.tripH[m] * 60) + ' per trip, ' + p.perShift[m] + ' per driver per shift').join('; ') + '.';
+    }
+    chartNote('pl_drivers', { read, kind: 'detail', act: 'click shows that day by hour →' });
+  }
+  function renderDrvHour() {
+    const p = drvPlan(), h = p.hourly;
+    const sh0 = S.config.shiftStartHour == null ? 6 : +S.config.shiftStartHour;
+    if (ui.drvRange === 'day' && !(ui.drvDay && p.days.some(d => d.day === ui.drvDay))) ui.drvRange = '48';
+    const r = ui.drvRange || '48';
+    const now = Date.now();
+    let from, to;
+    if (r === 'day') { const [y, m, d] = ui.drvDay.split('-').map(Number); from = E.wallToEpoch(y, m, d, sh0, 0, 0, tz()); to = from + 24 * HOUR; }
+    else if (r === 'all') { from = h.t.length ? h.t[0] : now; to = h.t.length ? h.t[h.t.length - 1] + HOUR : now; }
+    else { from = Math.floor(now / HOUR) * HOUR - 6 * HOUR; to = from + 48 * HOUR; }
+    $('#drvRange').innerHTML = [['48', 'Next 48 h']].concat(ui.drvDay && p.days.some(d => d.day === ui.drvDay) ? [['day', fDayKey(ui.drvDay)]] : []).concat([['all', 'Whole well']])
+      .map(([k, l]) => '<button type="button" data-r="' + k + '" class="' + (k === r ? 'on' : '') + '">' + esc(l) + '</button>').join('');
+    syncSegs($('#drvRange'));
+    const I = [];
+    h.t.forEach((t, i) => { if (t >= from && t < to) I.push(i); });
+    const T = I.map(i => h.t[i]);
+    const busy = I.map(i => Math.round(h.busy[i] * 10) / 10), onShift = I.map(i => h.onShift[i]);
+    const labels = T.map(t => r === 'all' ? fDayShort(t) + ' ' + fHour(t) : (wp(t).h === 0 || t === T[0] ? fDayShort(t) + ' ' + fHour(t) : fHour(t)));
+    const nowIdx = T.findIndex(t => now >= t && now < t + HOUR);
+    const col = '#1E6B7A', shCol = '#7062A8';
+    chart('pl_drvhour', {
+      type: 'line',
+      data: { labels, datasets: [
+        { label: 'On a trip', data: busy, borderColor: col, backgroundColor: c => c.chart.chartArea ? oGrad(c.chart.ctx, c.chart.chartArea, col, .18, 0) : oA(col, .1), fill: true, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2.2, tension: .3, order: 2 },
+        { label: 'On shift', data: onShift, borderColor: shCol, borderWidth: 1.8, borderDash: [6, 3], stepped: 'middle', pointRadius: 0, pointHoverRadius: 4, order: 1, endLabelFmt: v => fmt.int(v) }
+      ] },
+      options: {
+        layout: { padding: { top: 16, right: 44 } },
+        scales: { x: Object.assign({}, gX, { ticks: Object.assign({}, gX.ticks, { maxTicksLimit: 9 }) }), y: Object.assign(gYf(v => fmt.int(v)), { ticks: Object.assign({}, gY.ticks, { precision: 0, callback: v => fmt.int(v) }), suggestedMax: 5 }) },
+        plugins: {
+          nowLine: { x: nowIdx >= 0 ? nowIdx : null },
+          endLabel: { enabled: true, fmt: v => nf1.format(v) },
+          tooltip: tt3({
+            title: it => { const t = T[it[0].dataIndex]; return fDay(t) + ' · ' + fHour(t) + '–' + fHour(t + HOUR); },
+            label: c => ' ' + c.dataset.label + ': ' + (c.dataset.label === 'On a trip' ? nf1.format(c.parsed.y) : fmt.int(c.parsed.y)) + ' drivers',
+            rows: i => {
+              const k = I[i], t = T[i], sh = E.shiftOf(t + 30 * E.MIN, tz(), sh0);
+              const o = p.shifts.find(x => x.key === sh.key);
+              const out = [(sh.shift === 'D' ? 'Day' : 'Night') + ' shift ' + fHour(sh.start) + '–' + fHour(sh.start + 12 * HOUR) + ': ' + nDr(o ? o.drivers : 0)];
+              if (o && o.drivers) out.push('Working on trips this hour: ' + Math.round(Math.min(1, h.busy[k] / o.drivers) * 100) + '% of the shift');
+              const st = h.starts[k];
+              const n = Object.keys(st).reduce((q, s) => q + st[s], 0);
+              out.push(n ? 'Loads leaving this hour: ' + n + ' (' + sandsIn(st) + ')' : 'No loads leaving this hour');
+              out.push(r === 'day' ? 'click opens the queue →' : 'click shows that day by hour →');
+              return out;
+            }
+          })
+        },
+        /* drill: an hour opens its operating day; inside a day it opens the queue */
+        onClick: (e, els) => {
+          if (!els || !els.length) return;
+          const t = T[els[0].index];
+          if (r === 'day') { setTimeout(() => { ui.asStatus = 'pend'; go('assign'); }, 0); return; }
+          const dk = E.shiftOf(t + 30 * MIN, tz(), sh0).day;
+          setTimeout(() => { ui.drvRange = 'day'; ui.drvDay = dk; renderDrvHour(); }, 0);
+        }
+      }
+    });
+    legend('pl_drvhour', [{ label: 'On a trip', color: col }, { label: 'On shift', swatch: SW.dash(shCol), line: true }, { label: 'Now', swatch: SW.dots('#E6A23C'), line: true, toggle: false }]);
+    let read = 'No trips in this window.';
+    if (I.length) {
+      let mi = 0; busy.forEach((v, i) => { if (v > busy[mi]) mi = i; });
+      const top = Math.max.apply(null, onShift);
+      read = 'Most drivers on a trip at once: <b>' + nf1.format(busy[mi]) + '</b> (' + fDay(T[mi]) + ', ' + fHour(T[mi]) + '). On shift at most <b>' + fmt.int(top) + '</b>: the difference is shift time with no trip.';
+    }
+    chartNote('pl_drvhour', { read, kind: 'detail', act: r === 'day' ? 'click opens the queue →' : 'click shows that day by hour →' });
+  }
+  function renderDrvStage(p) {
+    const si = drvSeg(p);
+    $('#drvStageBadge').textContent = nf2.format(p.H) + ' h shifts';
+    const th = ['Stages', 'Stages/day', 'Stage every', 'Loads per stage', 'Driver-hours per stage', 'Loads per hour', 'On a trip at once', 'On shift', 'Drivers per day', 'Turn rate', 'Shift time on trips'];
+    $('#drvStageTbl').innerHTML = '<thead><tr>' + th.map((c, i) => '<th' + (i ? ' style="text-align:right"' : '') + '>' + c + '</th>').join('') + '</tr></thead><tbody>' +
+      (p.segs.length ? p.segs.map((g, i) => '<tr' + (i === si ? ' class="cur"' : '') + '>' +
+        '<td><b>Stg ' + g.from + '–' + g.to + '</b>' + (i === si ? '<span class="nowtag">now</span>' : '') + '</td>' +
+        '<td class="n">' + nf1.format(g.pace) + '</td>' +
+        '<td class="n">' + (g.stageMin != null ? E.fmtDur(g.stageMin) : '—') + '</td>' +
+        '<td class="n">' + nf1.format(g.loadsPerStage) + '<div class="sub">' + S.config.sands.filter(s => g.perStage[s.id]).map(s => esc(s.label) + ' ' + nf1.format(g.perStage[s.id])).join(' · ') + '</div></td>' +
+        '<td class="n">' + nf1.format(g.driverHoursPerStage) + '</td>' +
+        '<td class="n">' + nf1.format(g.loadsPerHour) + '</td>' +
+        '<td class="n">' + nf1.format(g.driving) + '</td>' +
+        '<td class="n">' + fmt.int(g.onShift) + '</td>' +
+        '<td class="n"><b>' + fmt.int(g.perDay) + '</b></td>' +
+        '<td class="n">' + trTxt(g.tr) + '</td>' +
+        '<td class="n">' + (g.util != null ? Math.round(g.util * 100) + '%' : '—') + '</td></tr>').join('')
+        : '<tr><td colspan="11"><div class="empty">No design segments.</div></td></tr>') + '</tbody>';
   }
 
   /* ---------- design editor ---------- */
@@ -1765,6 +1941,7 @@
     h += '<div class="dsec"><h4>Prefill and productivity</h4><div class="fgrid">' +
       sands.map(s => '<label class="fld"><span>Prefill ' + esc(s.label) + ' <em>loads</em></span>' + num('prefill.' + s.id, (d.prefill || {})[s.id], 'step="1" min="0"') + '</label>').join('') +
       sands.map(s => '<label class="fld"><span>Loads per truck/day ' + esc(s.label) + ' <em>empty = data</em></span>' + num('loadsPerTruckDay.' + s.id, (d.loadsPerTruckDay || {})[s.id], 'step="0.1" min="0"') + '</label>').join('') +
+      '<label class="fld"><span>Driver hours per shift <em>empty = 12</em></span>' + num('drivers.shiftH', (d.drivers || {}).shiftH, 'step="0.5" min="4" max="16" placeholder="12"') + '</label>' +
       '</div></div>';
     h += '<div class="dsec"><h4>PO per sand <em class="hint">empty = latest OMMA export</em></h4><div class="fgrid">' +
       sands.map(s => { const x = M.sands[s.id]; const ex = x && x.poSrc === 'export' ? x.po : ''; return '<label class="fld"><span>PO ' + esc(s.label) + ' · ' + esc(mineOf(s.mine).name) + (ex ? ' <em>export: ' + esc(ex) + '</em>' : '') + '</span>' + txt('po.' + s.id, (d.po || {})[s.id]) + '</label>'; }).join('') +
@@ -1797,6 +1974,8 @@
     if (ps != null && fs != null && fs <= ps) issues.push({ lvl: 'warn', txt: 'Frac start is before the prefill' });
     const fcp = ui.draft.finalCountsPct;
     if (fcp != null && !(fcp >= 1 && fcp <= 100)) issues.push({ lvl: 'err', txt: 'Final counts must be between 1% and 100%' });
+    const shH = ui.draft.drivers && ui.draft.drivers.shiftH;
+    if (shH != null && shH !== '' && !(+shH >= 4 && +shH <= 16)) issues.push({ lvl: 'err', txt: 'Driver hours per shift must be between 4 and 16' });
     if (!issues.some(i => i.lvl === 'err') && !R.validConfig(draftConfig())) issues.push({ lvl: 'err', txt: 'A value is missing or out of range (a segment without stages/day, an empty carrier name, a sand label over 40 characters…)' });
     let sum = '';
     if (tb) {
@@ -2091,6 +2270,7 @@
       if (row && !t.closest('select,button,a,input')) { rowDetail(e, row.dataset.slot); return; }
       const st = t.closest('#asStatus .chip'); if (st) { ui.asStatus = st.dataset.st; applyQueueFilter(); return; }
       const gr = t.closest('#gapRange button'); if (gr) { ui.gapRange = gr.dataset.r; saveUI(); renderSoon(); return; }
+      const dr = t.closest('#drvRange button'); if (dr) { ui.drvRange = dr.dataset.r; renderDrvHour(); return; }
       const bs = t.closest('#basisSeg button'); if (bs) { ui.basis = bs.dataset.b; saveUI(); renderSoon(); return; }
       const sp = t.closest('#segPick button'); if (sp) { ui.segPick = +sp.dataset.seg; ui.segPickSet = true; renderSoon(); return; }
       const rd = t.closest('[data-rdel]');
@@ -2229,6 +2409,10 @@
     d.job.totalStages = Math.round(+d.job.totalStages);
     d.countFrom = d.countFrom || null;
     d.finalCountsPct = Math.min(100, Math.max(1, Math.round(+d.finalCountsPct || 80)));
+    if (d.drivers) {
+      if (d.drivers.shiftH == null || d.drivers.shiftH === '') delete d.drivers.shiftH; else d.drivers.shiftH = +d.drivers.shiftH;
+      if (!Object.keys(d.drivers).length) delete d.drivers;
+    }
     return d;
   }
   function saveDesign() {
@@ -2253,6 +2437,7 @@
     if (JSON.stringify(c0.loadsPerTruckDay || {}) !== JSON.stringify(d.loadsPerTruckDay || {})) diff.push('loads per truck/day');
     if (JSON.stringify(c0.carriers) !== JSON.stringify(d.carriers)) diff.push('carriers');
     if ((c0.finalCountsPct || 80) !== d.finalCountsPct) diff.push('final counts ' + d.finalCountsPct + '%');
+    if (E.shiftHours(c0) !== E.shiftHours(d)) diff.push('driver shift ' + nf2.format(E.shiftHours(d)) + ' h');
     withMe(() => {
       Store.dispatch({ type: 'cfg', config: d, txt: diff.join(' · ') || 'parameters' });
       ui.dirty = false; ui.draft = null;

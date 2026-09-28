@@ -234,3 +234,11 @@ test('reducer: hostile input is refused', () => {
   assert.ok(isFinite(Date.parse(r.state.asg['2040-050'].t)), 'bad time replaced by now');
   assert.ok(!r.state.asg['2040-051'], 'oversized id ignored');
 });
+
+test('config: driver hours per shift within 4–16', () => {
+  const c = S.clone(S.DEFAULT_CONFIG);
+  assert.equal(R.validConfig(Object.assign(S.clone(c), { drivers: { shiftH: 12 } })), true);
+  assert.equal(R.validConfig(Object.assign(S.clone(c), { drivers: {} })), true);
+  assert.equal(R.validConfig(Object.assign(S.clone(c), { drivers: { shiftH: 40 } })), false);
+  assert.equal(R.validConfig(Object.assign(S.clone(c), { drivers: 'x' })), false);
+});

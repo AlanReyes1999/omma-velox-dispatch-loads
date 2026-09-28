@@ -49,7 +49,7 @@ If the app opens without the function (GitHub Pages, or the `index.html` file fr
 | **Command** | What to assign now: next loads, gap vs cadence, the well's stage spiral, loads en route and the split by sand. |
 | **Assign** | The full queue in the order loads have to be assigned, numbered 1–492, with no days or hours. Columns: #, load, mine, PO, stage, running total on location, status (scheduled / assigned / overdue) and carrier (optional). |
 | **Progress** | How far the sand covers (assigned, estimated delivered or actual OMMA) and the actual stage vs plan. The stage the frac crew reports is logged here: the whole queue re-anchors to it. |
-| **Plan** | Loads per day, trucks required vs plan and the design editor (segments, lbs per stage, pace, prefill, POs, final counts %, carriers, schedule). Saving applies to all dispatch. |
+| **Plan** | Loads per day, trucks required vs plan, drivers needed per shift, day, hour and stage with their turn rate, and the design editor (segments, lbs per stage, pace, prefill, POs, final counts %, driver hours per shift, carriers, schedule). Saving applies to all dispatch. |
 | **Mines** | Payload, load, transit and on-location times per mine, the PO of each sand, and the upload of the OMMA loads export (.xls, .xlsx or .csv). |
 
 Global filters (sand and carrier) and the unit (loads, lbs or tons) apply to every view. Clicking a bar, doughnut slice or card filters the board; clicking a legend item toggles that layer.
@@ -75,6 +75,7 @@ Global filters (sand and carrier) and the unit (loads, lbs or tons) apply to eve
 - **PO**: the one set in Plan; if empty, the one from the latest OMMA export for that sand.
 - **Calendar**: with no reports it uses the frac start and the design pace; from the first stage report on it re-anchors to the actual stage.
 - **Trucks required** = loads/day ÷ loads per truck per day (2 for Iron Oak, from the plan; 20/40 is estimated with the IronHorse cycle).
+- **Drivers and turn rate**: a driver works one shift a day (12 h, editable in Plan) and a load keeps a driver for its mine's round trip (the cycle per truck from the OMMA export). Any driver can take any trip: long trips are covered first, as many whole trips per driver as fit in a shift, and the time left in those shifts takes shorter trips before another driver is added. A load counts in the shift where its trip is half done. Drivers per day = day shift + night shift; turn rate = loads per driver per day. By hour, the chart compares drivers on a trip with drivers on shift. By stage, each design segment shows loads and driver-hours per stage and the drivers that hold its pace.
 
 ## Starting design assumptions
 
@@ -100,13 +101,13 @@ All of them change in **Plan → Well design** and apply to all dispatch:
 
 ```bash
 npm install
-npm test            # engine, parser, reducer and function (36 tests)
+npm test            # engine, parser, reducer and function (42 tests)
 npx netlify dev     # app + function at http://localhost:8888
 ```
 
 ```
 public/                 static site (index.html, assets/css, assets/js, fonts, icons, sw.js for offline use)
-  assets/js/engine.js   engine: design → slots, cadence, coverage, trucks, final counts
+  assets/js/engine.js   engine: design → slots, cadence, coverage, trucks, drivers, final counts
   assets/js/reducer.js  shared operations (used by the browser and by the function)
   assets/js/parser.js   OMMA export reader (.xls HTML, .xlsx, .csv)
   assets/js/store.js    sync with /api/state, offline queue

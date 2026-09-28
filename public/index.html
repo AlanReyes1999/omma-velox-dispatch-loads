@@ -204,7 +204,7 @@
       <!-- ========================= PLAN ========================= -->
       <section class="view" data-pane="plan" id="v-plan" aria-labelledby="h-plan">
         <div class="vhead">
-          <div><div class="eyebrow">04 · Design and plan</div><h2 id="h-plan">Well design, loads per day and trucks</h2></div>
+          <div><div class="eyebrow">04 · Design and plan</div><h2 id="h-plan">Well design, loads per day, trucks and drivers</h2></div>
           <div class="vmeta" id="plMeta"></div>
         </div>
         <div class="sandtotals" id="sandTotals"></div>
@@ -222,8 +222,27 @@
             <div class="cadence" id="cadence"></div>
           </article>
         </div>
+        <div class="sandtotals drvkpis" id="drvKpis"></div>
+        <div class="grid g2w">
+          <article class="gcard panel clip a-teal" id="pDrivers">
+            <div class="ph"><span class="pn">03</span><h3>Drivers needed per day</h3><span class="pbadge" id="drvBadge">—</span></div>
+            <p class="pdesc">Bars: drivers on the day and night shift. Line: turn rate, loads per driver per day. Any driver can take any trip.</p>
+            <div class="ch ch-l"><canvas id="pl_drivers"></canvas></div>
+          </article>
+          <article class="gcard panel clip a-lav" id="pDrvHour">
+            <div class="ph"><span class="pn">04</span><h3>Drivers working by hour</h3><div class="seg sm" id="drvRange"></div></div>
+            <p class="pdesc">Area: drivers on a trip in that hour. Line: drivers on shift.</p>
+            <div class="ch ch-l"><canvas id="pl_drvhour"></canvas></div>
+          </article>
+        </div>
+        <div class="grid">
+          <article class="gcard panel a-mint" id="pDrvStage">
+            <div class="ph"><span class="pn">05</span><h3>Drivers per stage · by design segment</h3><span class="pbadge" id="drvStageBadge">—</span></div>
+            <div class="tscroll tablewrap"><table class="ltable dstage" id="drvStageTbl"></table></div>
+          </article>
+        </div>
         <article class="gcard panel a-lav" id="pDesign">
-          <div class="ph"><span class="pn">03</span><h3>Well design</h3><span class="pbadge" id="designBadge">—</span></div>
+          <div class="ph"><span class="pn">06</span><h3>Well design</h3><span class="pbadge" id="designBadge">—</span></div>
           <div id="designForm"></div>
         </article>
       </section>
@@ -237,7 +256,7 @@
         <div class="minegrid" id="mineCards"></div>
         <div class="grid g2">
           <article class="gcard panel clip a-sky" id="pCycle">
-            <div class="ph"><span class="pn">01</span><h3>Cycle breakdown</h3><span class="pbadge">median</span></div>
+            <div class="ph"><span class="pn">01</span><h3>Cycle breakdown</h3><span class="pbadge">per trip</span></div>
             <p class="pdesc">Where each trip's time goes: at the mine, in transit, on location, and back plus waiting.</p>
             <div class="ch ch-s"><canvas id="ar_cycle"></canvas></div>
           </article>

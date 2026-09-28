@@ -384,3 +384,47 @@ test('on location: one general average over the loads of all mines to this well,
   near(M3.stats.mines.IRONOAK.dest.value, (59 + 212 + 108 + 7 + 500) / 5, 1e-9);   // none to this well: all loads
   assert.deepEqual(M3.stats.mines.IRONOAK.dest, M3.stats.mines.IRONHORSE.dest);
 });
+
+test('drivers: long trips one per driver per shift, short trips fill the time left', () => {
+  const trip = { IO: 9.5, IH: 1.5 };
+  let r = E.packShift({ IO: 10 }, trip, 12);
+  assert.equal(r.total, 10, 'a 9.5 h trip fits once in a 12 h shift');
+  r = E.packShift({ IH: 16 }, trip, 12);
+  assert.equal(r.total, 2, 'eight 1.5 h trips per driver');
+  r = E.packShift({ IO: 10, IH: 8 }, trip, 12);
+  assert.equal(r.total, 10, 'the IronHorse trips ride in the 2.5 h Iron Oak drivers have left');
+  assert.equal(r.absorbed.IH, 8);
+  r = E.packShift({ IO: 10, IH: 26 }, trip, 12);
+  assert.equal(Math.ceil(r.total - 1e-9), 12, '10 absorbed, 16 more on 2 new drivers');
+  assert.equal(E.packShift({}, trip, 12).total, 0);
+  assert.equal(E.packShift({ IO: 3 }, { IO: 13 }, 12).total, 3, 'a trip longer than the shift still takes one driver');
+});
+
+test('drivers: plan per shift, day, hour and design segment', () => {
+  const M = model(st => { st.config.overrides = { payload: {}, leadMin: { IRONHORSE: 94 } }; });   // IronHorse trip 1h 34m
+  const p = E.driverPlan(M);
+  assert.equal(p.H, 12);
+  assert.equal(p.perShift.IRONOAK, 1);
+  assert.equal(p.perShift.IRONHORSE, 7);
+  assert.equal(p.total.loads, M.kpi.reqLoads, 'every needed load belongs to one shift');
+  const seg = p.segs.find(g => g.from === 31);
+  /* stages 31–105 at 19 stg/day: Iron Oak (90,000 + 169,000 lb ÷ 49,870) × 9.5 stages per shift = 49.3 trips,
+     one per driver; the 3.7 IronHorse trips fit in the time those drivers have left */
+  assert.equal(seg.onShift, 50);
+  assert.equal(seg.perDay, 100);
+  assert.ok(Math.abs(seg.loadsPerStage - (259000 / 49870 + 20000 / M.params['2040'].payload)) < 1e-9);
+  assert.ok(Math.abs(seg.tr - seg.loadsPerDay / 100) < 1e-9);
+  p.days.forEach(d => {
+    assert.equal(d.drivers, (d.D ? d.D.drivers : 0) + (d.N ? d.N.drivers : 0));
+    assert.ok(d.hours <= d.drivers * 12 + 1e-9, 'no shift is asked for more hours than its drivers have');
+  });
+  const tripHours = M.slots.filter(x => x.needed).reduce((q, x) => q + p.tripH[p.mineOf[x.s]], 0);
+  assert.ok(Math.abs(p.hourly.busy.reduce((a, b) => a + b, 0) - tripHours) < 1e-6, 'hour by hour adds up to the trip hours');
+  assert.ok(p.peak.drivers >= p.days[0].drivers);
+  const only = E.driverPlan(M, { sands: ['2040'] });
+  assert.equal(only.total.loads, M.sands['2040'].nNeeded);
+  assert.deepEqual(Object.keys(only.tripH), ['IRONHORSE']);
+  const longer = E.driverPlan(model(st => { st.config.overrides = { payload: {}, leadMin: { IRONHORSE: 94 } }; st.config.drivers = { shiftH: 14 }; }));
+  assert.equal(longer.perShift.IRONHORSE, 8);
+  assert.equal(E.shiftHours({ drivers: { shiftH: 30 } }), 12, 'out of range falls back to 12 h');
+});
