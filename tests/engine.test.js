@@ -322,3 +322,65 @@ test('segments with gaps or overlaps are reported', () => {
   cfg.segments[1].from = 25;
   assert.ok(E.stageTable(cfg).issues.some(i => /two segments/.test(i.txt)));
 });
+
+/* Iron Oak 115 loads to this well with the given loading times (minutes; null = no loading time) */
+const ironOak = tms => tms.map((tm, i) => ({
+  k: 'io|' + i, n: 'io' + i, s: '100M', m: 'IRONOAK', w: 50000, tm, tx: 190, td: 60,
+  a: at('2026-09-26T00:00:00-06:00') + i * 60e3, d: at('2026-09-26T08:00:00-06:00') + i * 60e3,
+  wl: 'Riley Horned Frog 5', c: 'OMMA'
+}));
+const TEN = [30, 32, 34, 36, 38, 40, 42, 44, 46, 120];
+const ELEVEN = TEN.concat([48]);                            // median 40 (mean 46.4)
+
+test('at mine: Iron Oak 115 is 20 min while 10 or fewer of its loads carry a loading time, then the data median', () => {
+  const M = model();
+  const io = M.stats.mines.IRONOAK.term, ih = M.stats.mines.IRONHORSE.term;
+  assert.equal(io.n, 0);                                     // the seed Iron Oak loads have no loading time
+  assert.equal(io.value, 20);
+  assert.equal(ih.value, 33);                                // IronHorse unchanged: median of 39 and 27
+  assert.equal(ih.value, ih.median);
+  assert.equal(M.stats.mines.IRONOAK.transit.value, 192.5);  // transit still the median
+  const M10 = model(st => { st.omma.loads.push(...ironOak(TEN.concat([null, null, null]))); });
+  assert.equal(M10.stats.mines.IRONOAK.term.n, 10);         // loads without a loading time do not count
+  assert.equal(M10.stats.mines.IRONOAK.term.value, 20);
+  const M11 = model(st => { st.omma.loads.push(...ironOak(ELEVEN)); });
+  assert.equal(M11.stats.mines.IRONOAK.term.n, 11);
+  assert.equal(M11.stats.mines.IRONOAK.term.value, 40);
+  assert.equal(M11.stats.mines.IRONOAK.term.value, M11.stats.mines.IRONOAK.term.median);
+});
+
+test('at mine: a numeric loadMin on the mine config wins over the base; the data still takes over past 10 loads', () => {
+  const setMin = (st, id, v) => { st.config.mines.find(m => m.id === id).loadMin = v; };
+  assert.equal(model(st => setMin(st, 'IRONOAK', 25)).stats.mines.IRONOAK.term.value, 25);
+  assert.equal(model(st => setMin(st, 'IRONOAK', '25')).stats.mines.IRONOAK.term.value, 25);
+  const H = model(st => setMin(st, 'IRONHORSE', 45));
+  assert.equal(H.stats.mines.IRONHORSE.term.value, 45);
+  assert.equal(H.stats.mines.IRONOAK.term.value, 20);
+  const D = model(st => { setMin(st, 'IRONOAK', 25); st.omma.loads.push(...ironOak(ELEVEN)); });
+  assert.equal(D.stats.mines.IRONOAK.term.value, 40);
+  for (const bad of [0, -5, 'x', '', null, true]) {
+    assert.equal(model(st => setMin(st, 'IRONOAK', bad)).stats.mines.IRONOAK.term.value, 20, 'loadMin ' + JSON.stringify(bad));
+  }
+});
+
+test('on location: one general average over the loads of all mines to this well, the same on every mine', () => {
+  const st0 = S.initialState();
+  const td = st0.omma.loads.filter(l => l.wl === st0.config.job.well).map(l => l.td);
+  const avg = td.reduce((p, q) => p + q, 0) / td.length;
+  const M = model();
+  const io = M.stats.mines.IRONOAK.dest, ih = M.stats.mines.IRONHORSE.dest;
+  assert.equal(avg, 96.5);                                   // (59 + 212 + 108 + 7) ÷ 4, not the median (83.5)
+  assert.equal(io.value, avg);
+  assert.deepEqual(io, ih);
+  assert.equal(io.n, 4);
+  assert.equal(io.min, 7);
+  assert.equal(io.max, 212);
+  const other = { k: 'o|1', n: 'o1', s: '2040', m: 'IRONHORSE', w: 50000, tm: 30, tx: 20, td: 500,
+    a: at('2026-09-26T00:00:00-06:00'), d: at('2026-09-26T06:00:00-06:00'), wl: 'Another pad', c: 'OMMA' };
+  const M2 = model(st => { st.omma.loads.push(other); });
+  assert.equal(M2.stats.mines.IRONHORSE.dest.value, avg);   // loads to other wells stay out
+  assert.equal(M2.stats.mines.IRONOAK.dest.value, avg);
+  const M3 = model(st => { st.omma.loads.push(other); st.config.job.well = 'No loads yet'; });
+  near(M3.stats.mines.IRONOAK.dest.value, (59 + 212 + 108 + 7 + 500) / 5, 1e-9);   // none to this well: all loads
+  assert.deepEqual(M3.stats.mines.IRONOAK.dest, M3.stats.mines.IRONHORSE.dest);
+});

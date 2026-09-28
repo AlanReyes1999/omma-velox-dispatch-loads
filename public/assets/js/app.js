@@ -1818,7 +1818,8 @@
     const st = M.stats;
     $('#arMeta').innerHTML = '<span class="pill">' + st.n + ' OMMA loads</span>' + (st.range ? '<span class="pill">' + fDay(st.range.from) + ' – ' + fDay(st.range.to) + '</span>' : '');
     const cell = (k, v, s) => '<div><div class="k">' + k + '</div><div class="v">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>';
-    const dur = x => x && x.n ? E.fmtDur(x.median) : '—';
+    const tv = x => x && x.value != null ? x.value : x && x.n ? x.median : null;
+    const dur = x => tv(x) != null ? E.fmtDur(tv(x)) : '—';
     const nTx = x => x && x.n ? 'n=' + x.n + (x.n > 1 ? ' · ' + E.fmtDur(x.min) + '–' + E.fmtDur(x.max) : '') : 'no data';
     if (!$('#mineCards').contains(document.activeElement)) $('#mineCards').innerHTML = S.config.mines.map((mi, i) => {
       const ms = st.mines[mi.id] || {};
@@ -1829,7 +1830,7 @@
         '<div class="pos">' + sands.map(s => { const x = M.sands[s.id]; return '<div class="po-it"><span class="sl s-' + s.id + '"><i></i>' + esc(s.label) + '</span><span class="po-k">PO</span><b class="mono">' + esc(x.po || '—') + '</b>' + (x.poSrc ? srcTag(x.poSrc) : '') + '</div>'; }).join('') + '</div>' +
         '<div class="kv">' +
         cell('Payload', ms.payload && ms.payload.n ? fmt.int(ms.payload.mean) + '<small>lb</small>' : '—', ms.payload && ms.payload.n ? 'n=' + ms.payload.n + ' · ' + fmt.int(ms.payload.min) + '–' + fmt.int(ms.payload.max) : 'no data') +
-        cell('At mine', dur(ms.term), nTx(ms.term)) +
+        cell('At mine', dur(ms.term), ms.term && ms.term.base ? '' : nTx(ms.term)) +
         cell('Loaded transit', dur(ms.transit), nTx(ms.transit)) +
         cell('On location', dur(ms.dest), nTx(ms.dest)) +
         cell('Assigned → delivered', (p0.leadMin ? E.fmtDur(p0.leadMin) : '—') + (p0.leadSrc ? srcTag(p0.leadSrc) : ''), nTx(ms.lead)) +
@@ -1856,10 +1857,9 @@
       const sands = S.config.sands.filter(s => s.mine === mi.id);
       const p = M.params[sands[0] ? sands[0].id : ''] || {};
       const cyc = p.cycleMin || 0;
-      const term = ms.term && ms.term.n ? ms.term.median : 0;
-      const tr = ms.transit && ms.transit.n ? ms.transit.median : 0;
-      const de = ms.dest && ms.dest.n ? ms.dest.median : 0;
-      return { term, tr, de, rest: Math.max(0, cyc - term - tr - de), cyc, hasTerm: !!(ms.term && ms.term.n), src: p.cycleSrc };
+      const tv = x => x && x.value != null ? x.value : x && x.n ? x.median : null;
+      const term = tv(ms.term) || 0, tr = tv(ms.transit) || 0, de = tv(ms.dest) || 0;
+      return { term, tr, de, rest: Math.max(0, cyc - term - tr - de), cyc, hasTerm: tv(ms.term) != null, src: p.cycleSrc };
     });
     const labels = mines.map(m => m.name);
     const on = mines.map(mi => S.config.sands.filter(s => s.mine === mi.id).some(s => sandOn(s.id)));

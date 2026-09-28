@@ -178,15 +178,33 @@
     return !w || normText(l.wl) === w;
   }
 
+  /* Loading time ("At mine") base per mine, in minutes. It holds while the loads behind the statistic
+     carry LOAD_BASE_MAX_N or fewer loading times; with more, the data median takes over.
+     A numeric `loadMin` on the mine's config wins over this table. */
+  const LOAD_BASE_MIN = { IRONOAK: 20 };
+  const LOAD_BASE_MAX_N = 10;
+  function loadBaseMin(mine) {
+    const v = mine.loadMin;
+    if ((typeof v === 'number' || typeof v === 'string') && +v > 0 && isFinite(+v)) return +v;
+    return LOAD_BASE_MIN[mine.id] > 0 ? LOAD_BASE_MIN[mine.id] : null;
+  }
+
   /* Statistics per mine and per sand from the OMMA loads.
      · payload: every load from that mine/sand (weight does not depend on the well)
      · times: only loads to THIS well (transit depends on the route); if none, all of them
+     · at mine: the mine's loading-time base while the data is thin (LOAD_BASE_MIN)
+     · on location: one general average for every mine, from the loads of all mines to this well
+       (if none, all loads)
      · cycle: consecutive deliveries by the same truck from the same mine, with the next
-       acceptance ≤ 3 h after delivering (continuous work) */
+       acceptance ≤ 3 h after delivering (continuous work)
+     Each time (term, transit, dest) carries `value`: the minutes to show and chart for it. */
   function computeStats(loads, cfg) {
     const out = { mines: {}, sands: {}, n: loads.length, range: null };
     const ts = loads.map(l => l.d || l.a).filter(Boolean);
     if (ts.length) out.range = { from: Math.min.apply(null, ts), to: Math.max.apply(null, ts) };
+    const W = loads.filter(l => isJobLoad(l, cfg));
+    const dest = summary((W.length ? W : loads).map(l => l.td));
+    dest.value = dest.mean;
     for (const mine of cfg.mines) {
       const L = loads.filter(l => l.m === mine.id);
       const J = L.filter(l => isJobLoad(l, cfg));
@@ -202,10 +220,15 @@
           if (gap > 0 && gap < DAY && id >= -30 * MIN && id <= 3 * HOUR) { cyc.push(gap / MIN); idle.push(Math.max(0, id) / MIN); }
         }
       });
+      const term = summary(T.map(l => l.tm)), transit = summary(T.map(l => l.tx));
+      const base = loadBaseMin(mine);
+      term.base = base != null && term.n <= LOAD_BASE_MAX_N;
+      term.value = term.base ? base : term.median;
+      transit.value = transit.median;
       out.mines[mine.id] = {
         n: L.length, nTimes: T.length, timesScope: J.length ? 'well' : 'all',
         payload: summary(L.map(l => l.w > 0 ? l.w : null)),
-        term: summary(T.map(l => l.tm)), transit: summary(T.map(l => l.tx)), dest: summary(T.map(l => l.td)),
+        term, transit, dest: Object.assign({}, dest),
         lead: summary(lead), cycle: summary(cyc), idle: summary(idle),
         miles: median(L.map(l => l.mi))
       };
