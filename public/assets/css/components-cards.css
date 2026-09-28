@@ -1,0 +1,1072 @@
+/* OMMA components v2 — cards de datos TAL CUAL (Dispatch Progress + Compliance + JE house + DCC)
+   Sistema A usa Inter; Sistema B usa Space Grotesk/Plus Jakarta (ver tokens-editorial.css). */
+
+/* ========== 1. KPI SaaS (Dispatch Progress) ========== */
+.kpi-saas{background:#FFFFFF;border:1px solid #E5E9F0;border-radius:12px;padding:18px 20px;box-shadow:0 1px 2px rgba(27,37,56,.04);transition:box-shadow .18s,transform .18s;position:relative}
+.kpi-saas:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(27,37,56,.08)}
+.kpi-saas .kl{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8893A6}
+.kpi-saas .kl svg{width:16px;height:16px;color:#B6BDC0;flex:0 0 16px}
+.kpi-saas .kv{font-size:26px;font-weight:800;color:#1B2538;letter-spacing:-.02em;margin-top:10px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi-saas .kv small{font-size:15px;font-weight:600;color:#8893A6;letter-spacing:0}
+.kpi-saas .ks{font-size:12px;color:#8893A6;margin-top:6px;line-height:1.5}
+.kpi-saas .ks b{color:#4F5B6E;font-weight:700}
+/* variantes por estado: borde + icono tintados */
+.kpi-saas.acc-amber{border-color:#F4B860}.kpi-saas.acc-amber .kl svg{color:#E6A23C}
+.kpi-saas.acc-green{border-color:#B9E0CB}.kpi-saas.acc-green .kl svg{color:#4CAF7D}
+.kpi-saas.acc-red{border-color:#F0BCBC}.kpi-saas.acc-red .kl svg{color:#D9534F}
+.kpi-saas.acc-teal{border-color:#B8DDE3}.kpi-saas.acc-teal .kl svg{color:#1E6B7A}
+
+/* ========== 2. Stat tintada (Compliance Performance) ========== */
+.stat-tint{border-radius:14px;padding:20px 22px;border:1px solid transparent}
+.stat-tint .l{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#4F5B6E}
+.stat-tint .v{font-size:34px;font-weight:800;color:#1B2538;letter-spacing:-.02em;margin-top:8px;line-height:1.05;font-variant-numeric:tabular-nums}
+.stat-tint .d{font-size:12.5px;color:#4F5B6E;margin-top:8px;line-height:1.55}
+.stat-tint.t-teal{background:#ECF4F6;border-color:#DCEBEE}
+.stat-tint.t-cream{background:#FBF4DC;border-color:#F1E6C2}
+.stat-tint.t-peach{background:#FDF1E8;border-color:#F4DFCE}
+.stat-tint.t-rose{background:#FDF0F0;border-color:#F4D8D8}
+.stat-tint.t-mint{background:#E7F5EF;border-color:#D2EADF}
+.stat-tint.t-lav{background:#F0EDF8;border-color:#E0DAF0}
+
+/* ========== 3. mcard métrica editorial (JE house) ========== */
+.mcard{background:var(--panel,#FFFFFF);border:1px solid var(--line,#EBE9E1);border-radius:11px;padding:16px 16px 14px;box-shadow:0 1px 2px rgba(35,40,30,.04),0 4px 16px rgba(35,40,30,.06);position:relative;overflow:hidden}
+.mcard .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mcard .l{font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3,#929AA0)}
+.mcard .goalpill{font-size:8.5px;font-weight:700;letter-spacing:.04em;color:var(--ink3,#929AA0);background:var(--panel3,#F1F0E9);border:1px solid var(--line,#EBE9E1);padding:2px 7px;border-radius:6px}
+.mcard .v{font-family:'Space Grotesk',sans-serif;font-size:30px;font-weight:700;color:var(--char,#2A2A34);line-height:1.05;margin-top:10px}
+.mcard .v small{font-size:15px;color:var(--ink3,#929AA0);font-weight:600;letter-spacing:0}
+.mcard .deltas{display:flex;gap:14px;margin-top:11px;padding-top:10px;border-top:1px solid var(--line2,#F2F0EA)}
+.mcard .dl{flex:1}
+.mcard .dl .dk{font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink4,#B6BDC0)}
+.mcard .dl .dv{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;margin-top:2px;display:flex;align-items:center;gap:3px}
+.dv.pos{color:var(--greenD,#3C8A5C)}.dv.neg{color:var(--redD,#BE4F42)}.dv.flat{color:var(--ink2,#5A5F68)}
+.mcard.flag::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--red,#D9685A)}
+.mcard.win::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--lime,#8FB01E)}
+
+/* ========== 4. Hero strip sobre charcoal (JE cover) ========== */
+.herostrip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden}
+.hstat{background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,0));padding:15px 16px 16px}
+.hstat .l{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8A8E9A}
+.hstat .v{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:30px;color:#fff;line-height:1.05;margin-top:7px}
+.hstat .v.lime{color:var(--limeBright,#B0D028)}
+.hstat .s{font-size:9.5px;color:#9498A4;margin-top:4px;font-weight:500}
+.hstat .s.pos{color:#9BC23A}.hstat .s.neg{color:#E08A78}
+
+/* ========== chips de filtro + segmented (DCC/Dispatch) ========== */
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{border:1px solid #E5E9F0;background:#fff;color:#4F5B6E;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s ease;font-family:inherit}
+.chip:hover{border-color:#B8DDE3;color:#1E6B7A}
+.chip.active{background:#1E6B7A;border-color:#1E6B7A;color:#fff}
+.seg{display:inline-flex;background:#F1F4F9;border:1px solid #E5E9F0;border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;border-radius:8px;padding:6px 13px;font-size:11.5px;font-weight:700;color:#8893A6;cursor:pointer;transition:all .15s ease;font-family:inherit}
+.seg button.active{background:#fff;color:#1E6B7A;box-shadow:0 1px 2px rgba(27,37,56,.06)}
+.seg button .badge{font-size:10px;background:#ECF4F6;color:#1E6B7A;padding:1px 6px;border-radius:10px;font-weight:700;margin-left:4px}
+.seg button.active .badge{background:#1E6B7A;color:#fff}
+
+/* ========== goal track con marca TARGET (JE) ========== */
+.goal{display:grid;grid-template-columns:160px 1fr 116px;align-items:center;gap:16px}
+.goal .gname{font-size:13px;font-weight:700;display:flex;align-items:center;gap:9px}
+.goal .gname .dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px}
+.track{position:relative;height:11px;background:#F1F0E9;border:1px solid #EBE9E1;border-radius:20px;overflow:hidden}
+.fill{position:absolute;left:0;top:0;bottom:0;border-radius:20px;transition:width .5s cubic-bezier(.22,.8,.35,1)}
+.tmark{position:absolute;top:-4px;bottom:-4px;width:2px;background:#5A5F68;opacity:.55}
+.tmark::after{content:'TARGET';position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:6.5px;font-weight:700;letter-spacing:.1em;color:#929AA0;white-space:nowrap}
+.badge.met{background:#DDF0E4;color:#3C8A5C}.badge.miss{background:#FAE0DB;color:#BE4F42}
+
+/* ========== watch card con prioridad + plan card (JE) ========== */
+.wcard{display:grid;grid-template-columns:64px 1fr;gap:14px;background:#fff;border:1px solid #EBE9E1;border-radius:11px;padding:14px 16px;position:relative;overflow:hidden}
+.prib{font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:5px}
+.prib.high{background:#FAE0DB;color:#BE4F42}.prib.med{background:#FBEFD3;color:#B97F1C}.prib.low{background:#F1F0E9;color:#5A5F68;border:1px solid #EBE9E1}
+.wcard.l-high::before,.wcard.l-med::before,.wcard.l-low::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.wcard.l-high::before{background:#D9685A}.wcard.l-med::before{background:#D99B2E}.wcard.l-low::before{background:#DEDCD2}
+.pcard{display:grid;grid-template-columns:38px 1fr 132px;gap:16px;align-items:center;background:#fff;border:1px solid #EBE9E1;border-radius:11px;padding:16px 18px}
+.pcard .pnum{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;color:#74921A;line-height:1}
+.pcard .pimpact{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:#3C8A5C;line-height:1}
+.pcard .powner{display:inline-block;white-space:nowrap;margin-top:7px;font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A5F68;background:#F1F0E9;border:1px solid #EBE9E1;padding:3px 9px;border-radius:6px}
+
+/* ========== detail card flotante (DCC scatter) ========== */
+.detail-card{display:none;position:fixed;z-index:80;min-width:230px;background:#fff;border:1px solid #E5E9F0;border-radius:12px;box-shadow:0 10px 30px rgba(27,37,56,.14);padding:13px 14px 12px}
+.detail-card.show{display:block;animation:dcFade .15s}
+.detail-card .dc-title{font-weight:700;font-size:13px;margin-bottom:8px;color:#1B2538}
+.detail-card .dc-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;gap:14px}
+.detail-card .dc-row span:first-child{color:#8893A6}
+.detail-card .dc-close{position:absolute;top:6px;right:9px;cursor:pointer;color:#8893A6;font-weight:700;font-size:14px;line-height:1}
+@keyframes dcFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ========== motion utilidades ========== */
+.pane{display:none}.pane.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulseDot{0%,100%{box-shadow:0 0 0 0 rgba(125,207,182,.5)}55%{box-shadow:0 0 0 5px rgba(125,207,182,0)}}
+.dot-live{width:8px;height:8px;border-radius:50%;background:#4CAF7D;animation:pulseDot 2.2s infinite}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ========== barra de filtros activos · cross-filter (SKILL.md §5.2) ========== */
+.filter-bar{display:none;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0 2px;padding:8px 10px;
+  background:#ECF4F6;border:1px solid #B8DDE3;border-radius:10px}
+.filter-bar.show{display:flex;animation:fbIn .18s cubic-bezier(.22,.8,.35,1) both}
+@keyframes fbIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.filter-bar .fb-label{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#1E6B7A;margin-right:2px}
+.fpill{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #B8DDE3;color:#4F5B6E;
+  border-radius:999px;padding:4px 9px 4px 11px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:transform .15s cubic-bezier(.22,.8,.35,1),border-color .15s ease}
+.fpill b{color:#1B2538;font-weight:800}
+.fpill i{font-style:normal;color:#8893A6;font-weight:800;font-size:13px;line-height:1}
+.fpill:hover{transform:translateY(-1px);border-color:#1E6B7A}
+.fpill:hover i{color:#D9534F}
+.fpill:active{transform:scale(.97)}
+.fclear{margin-left:auto;background:none;border:none;color:#1E6B7A;font-family:inherit;font-size:10.5px;
+  font-weight:800;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:4px 7px;border-radius:7px;
+  transition:background .15s ease}
+.fclear:hover{background:rgba(30,107,122,.09)}
+@media(prefers-reduced-motion:reduce){.filter-bar.show{animation:none}.fpill{transition:none}}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v3 — componentes destilados de DCC · JE/RTL P&L · PropX · Compliance
+   Ver SKILL.md §3. Copiar tal cual; no reinventar.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ---------- card base y KPI de panel ---------- */
+.card{background:#fff;border:1px solid #E5E9F0;border-radius:14px;padding:20px;
+  box-shadow:0 1px 2px rgba(27,37,56,.04),0 1px 3px rgba(27,37,56,.06)}
+.card:hover{box-shadow:0 4px 12px rgba(27,37,56,.06),0 2px 4px rgba(27,37,56,.04)}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.card-title{font-family:'Manrope','Inter',sans-serif;font-size:15px;font-weight:700;letter-spacing:-.2px}
+.card-subtitle{font-size:11.5px;color:#8893A6;margin-top:2px}
+/* v5 · variante del panel de dispatch: título en 16.5 y descripción de 12.5 a dos líneas.
+   Se usa cuando la gráfica necesita explicarse; con subtítulo corto manda .card-subtitle. */
+.gcard .card-title{font-size:16.5px;font-weight:700;letter-spacing:-.022em;line-height:1.25}
+.gcard .card-subtitle{font-size:12.5px;color:#96A0B0;margin-top:5px;line-height:1.45;max-width:62ch}
+.gcard .card-head{margin-bottom:16px}
+
+.kpi-card{background:#fff;border:1px solid #E5E9F0;border-radius:14px;padding:18px;position:relative;
+  overflow:hidden;box-shadow:0 1px 2px rgba(27,37,56,.04),0 1px 3px rgba(27,37,56,.06);
+  display:flex;flex-direction:column;min-height:132px}
+.kpi-card:hover{border-color:#B8DDE3}
+.kpi-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.kpi-icon{width:38px;height:38px;border-radius:10px;display:grid;place-items:center}
+.kpi-icon.t1{background:#ECF4F6;color:#1E6B7A}.kpi-icon.t2{background:#D4EFE6;color:#3F9E7F}
+.kpi-icon.t3{background:#FCE8C8;color:#C88B3D}.kpi-icon.t4{background:#FBD9D9;color:#C25151}
+.kpi-icon.t5{background:#E2DCF1;color:#7062A8}.kpi-icon.t6{background:#D0E5F2;color:#3F7BA8}
+.kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:30px;display:inline-flex;align-items:center;gap:3px}
+.kpi-trend.pos{background:#E5F4EB;color:#2E8B5F}.kpi-trend.neg{background:#FCEAE9;color:#C25151}
+.kpi-trend.neu{background:#EEF2F7;color:#5A6779}
+/* el label va DEBAJO del icono, no encima del valor */
+.kpi-card .kpi-label{font-size:12px;color:#8893A6;font-weight:500;margin-bottom:6px;letter-spacing:.2px}
+.kpi-card .kpi-value{font-family:'Manrope','Inter',sans-serif;font-size:24px;font-weight:800;
+  letter-spacing:-.6px;color:#1B2538;font-variant-numeric:tabular-nums}
+.kpi-card .kpi-sub{font-size:11.5px;color:#8893A6;margin-top:auto;padding-top:8px}
+/* KPI clickeable: el cue aparece sólo en hover */
+.kpi-drill{cursor:pointer}
+.kpi-drill-cue{position:absolute;top:12px;right:13px;font-size:8.5px;font-weight:700;color:#4F95CE;
+  background:#DEEBF7;padding:3px 8px;border-radius:20px;opacity:0;transition:opacity .15s ease}
+.kpi-drill:hover .kpi-drill-cue{opacity:.95}
+/* barra de acento superior por variable inline --ac */
+.kpi-accent::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--ac,#1E6B7A);opacity:.85}
+
+/* KPI micro de topbar: el hover INVIERTE el chip (gris→blanco), no lo oscurece */
+.topbar-kpi{display:flex;align-items:center;gap:9px;padding:7px 13px 7px 8px;background:#F1F4F9;
+  border-radius:12px;border:1px solid transparent;transition:all .15s ease}
+.topbar-kpi:hover{background:#fff;border-color:#E5E9F0;box-shadow:0 1px 2px rgba(27,37,56,.04),0 1px 3px rgba(27,37,56,.06)}
+.tbk-icon{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex-shrink:0}
+.tbk-lbl{font-size:9.5px;font-weight:700;color:#8893A6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.tbk-val{font-family:'Manrope','Inter',sans-serif;font-weight:800;font-size:14px;letter-spacing:-.2px;
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* ---------- alert card: barra de estado por ::before ---------- */
+.alert-card{background:#fff;border:1px solid #E5E9F0;border-radius:14px;padding:14px 18px;display:flex;
+  align-items:center;gap:14px;cursor:pointer;position:relative;overflow:hidden;
+  box-shadow:0 1px 2px rgba(27,37,56,.04),0 1px 3px rgba(27,37,56,.06)}
+.alert-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+.alert-card.crit::before{background:#F08080}.alert-card.warn::before{background:#F4B860}
+.alert-card.info::before{background:#6BAED6}.alert-card.ok::before{background:#7DCFB6}
+.alert-icon{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex-shrink:0}
+.alert-card.crit .alert-icon{background:#FBD9D9;color:#C25151}
+.alert-card.warn .alert-icon{background:#FCE8C8;color:#C88B3D}
+.alert-card.info .alert-icon{background:#D0E5F2;color:#3F7BA8}
+.alert-card.ok   .alert-icon{background:#D4EFE6;color:#3F9E7F}
+.alert-info .lbl{font-size:11px;font-weight:600;color:#8893A6;text-transform:uppercase;letter-spacing:.4px}
+.alert-info .val{font-family:'Manrope','Inter',sans-serif;font-size:22px;font-weight:800;line-height:1.1;margin-top:2px}
+.alert-card.crit .val{color:#C25151}.alert-card.warn .val{color:#C88B3D}
+.alert-card.info .val{color:#3F7BA8}.alert-card.ok .val{color:#3F9E7F}
+
+/* ---------- hero oscuro con bloom radial + stats de vidrio ---------- */
+.hero-dark{position:relative;overflow:hidden;border-radius:14px;padding:24px 26px;color:#fff;
+  background:linear-gradient(135deg,#15384A 0%,#1E6B7A 100%);
+  box-shadow:0 10px 30px rgba(27,37,56,.08),0 4px 12px rgba(27,37,56,.06)}
+.hero-dark::before{content:'';position:absolute;right:-100px;top:-100px;width:300px;height:300px;border-radius:50%;
+  background:radial-gradient(circle,rgba(125,207,182,.18) 0%,transparent 70%)}
+.hero-dark>*{position:relative;z-index:1}
+.hero-dark .title-tiny{font-size:11px;font-weight:700;letter-spacing:2px;opacity:.7;text-transform:uppercase;margin-bottom:8px}
+.hero-dark .title-big{font-family:'Manrope','Inter',sans-serif;font-size:42px;font-weight:800;letter-spacing:-1.5px;line-height:1}
+.hero-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:rgba(255,255,255,.12);
+  border-radius:30px;font-size:11.5px;font-weight:600;backdrop-filter:blur(6px)}
+.glass-stat{background:rgba(255,255,255,.08);padding:12px 14px;border-radius:10px;
+  backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.06)}
+.glass-stat .lbl{font-size:10.5px;opacity:.7;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.glass-stat .val{font-family:'Manrope','Inter',sans-serif;font-size:20px;font-weight:800;margin-top:4px}
+
+/* ---------- metric strip: KPIs fusionados en una sola card ---------- */
+.mstrip{background:#fff;border:1px solid #E5E9F0;border-radius:14px;display:flex;overflow:hidden;
+  box-shadow:0 1px 3px rgba(27,37,56,.04),0 10px 28px rgba(27,37,56,.06)}
+.mstrip .it{flex:1;padding:14px 16px;border-right:1px solid #F1F4F9;display:flex;flex-direction:column;
+  justify-content:space-between;min-height:96px}
+.mstrip .it:last-child{border-right:none}
+.mstrip .it:hover{background:#F8FAFC}
+
+/* ---------- tabla premium ---------- */
+.table-wrap{overflow:auto;border-radius:10px;max-height:560px}
+.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+.tbl th{position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#15384A 0%,#1E4F60 100%);color:#fff;
+  font-weight:700;text-align:left;padding:11px 12px;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;
+  border-bottom:2px solid #1E6B7A;white-space:nowrap;cursor:pointer;user-select:none}
+.tbl th:hover,.tbl th.sorted{color:#7DCFB6}
+.tbl th .sort-ind{display:inline-block;width:10px;text-align:center;opacity:.4}
+.tbl th.sorted .sort-ind{opacity:1;color:#7DCFB6}
+.tbl td{padding:10px 12px;border-bottom:1px solid #F1F4F9;white-space:nowrap}
+.tbl td.right,.tbl th.right{text-align:right;font-variant-numeric:tabular-nums}
+.tbl td.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;font-weight:600}
+.tbl tr:hover td{background:#FBFCFD}                    /* hover al 1%: se percibe, no grita */
+/* columna congelada: dos ejes sticky simultáneos */
+.tbl th.sticky-col{position:sticky;left:0;z-index:3;background:linear-gradient(180deg,#15384A 0%,#1E4F60 100%)}
+.tbl td.sticky-col{position:sticky;left:0;z-index:1;background:#fff;border-right:1px solid #E5E9F0}
+.tbl tr:hover td.sticky-col{background:#F5F8FA}
+/* estado de fila por riel inset: no rompe sticky ni desplaza layout */
+.tbl tr.row-crit td.sticky-col{box-shadow:inset 3px 0 0 #C00000}
+.tbl tr.row-warn td.sticky-col{box-shadow:inset 3px 0 0 #F4B860}
+.tbl tr.row-info td.sticky-col{box-shadow:inset 3px 0 0 #6BAED6}
+.tbl tr.row-inactive{opacity:.55}
+.tbl tfoot td{background:#F1F4F9;font-weight:700;font-family:'Manrope','Inter',sans-serif;
+  border-top:2px solid #1E6B7A;position:sticky;bottom:0;z-index:2}
+.tbl tfoot td.sticky-col{left:0;z-index:3}
+/* conditional formatting — colores literales de Excel, sólo en tablas que replican un reporte conocido */
+.cell-r{background:#C00000!important;color:#fff!important;font-weight:700;text-align:center}
+.cell-o{background:#F6B26B!important;color:#fff!important;font-weight:700;text-align:center}
+.cell-y{background:#FFE599!important;color:#1B2538!important;font-weight:700;text-align:center}
+.cell-g{background:#D4EFE6!important;color:#1B2538!important;font-weight:700;text-align:center}
+.scroll-hint{font-size:10px;color:#8893A6;text-align:right;padding:4px 8px 0}
+
+/* ---------- barras: simple · con target · doble pista ---------- */
+.pbar{flex:1;height:7px;border-radius:5px;background:#F1F0E9;overflow:hidden}
+.pbar i{display:block;height:100%;border-radius:5px;width:0}
+.pbar i.g{background:linear-gradient(90deg,#4DA871,#B0D028)}
+.pbar i.a{background:#F4B860}.pbar i.r{background:#F08080}
+.pdbar{position:relative;height:6px;border-radius:4px;background:#F1F0E9;overflow:visible}
+.pdbar-fill{height:100%;border-radius:4px;width:0}
+.pdbar-mark{position:absolute;top:-3px;width:2px;height:12px;background:#2A2A34;border-radius:1px;transform:translateX(-1px)}
+/* doble pista: el rival va en rayas diagonales, nunca en otro color pleno */
+.bench-track{position:relative;height:9px;border-radius:5px;background:#F1F0E9;overflow:visible}
+.bench-oth{position:absolute;left:0;top:0;height:100%;border-radius:5px;opacity:.55;
+  background:repeating-linear-gradient(45deg,#B6BDC0,#B6BDC0 3px,#EBE9E1 3px,#EBE9E1 6px)}
+.bench-je{position:absolute;left:0;top:0;height:100%;border-radius:5px;width:0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+
+/* ---------- heat, severidad, medallas ---------- */
+.heat{display:inline-block;min-width:46px;padding:4px 10px;border-radius:7px;text-align:center;
+  font-family:'Manrope','Inter',sans-serif;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums}
+.heat.h0{background:#D9685A;color:#fff}.heat.h1{background:#E89B8B;color:#fff}
+.heat.h2{background:#D98A3C;color:#fff}.heat.h3{background:#D4A52E;color:#2A2A34}
+.heat.h4{background:#D9EBC6;color:#74921A}.heat.h5{background:#8FB01E;color:#fff}
+.sev{display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:5px 9px;border-radius:8px;min-width:64px}
+.sev.crit{background:#D9685A;color:#fff}.sev.high{background:#FAE0DB;color:#BE4F42}
+.sev.med{background:#FAE6D0;color:#D98A3C}.sev.low{background:#FAF0D2;color:#B97F1C}
+.sev.ok{background:#DDF0E4;color:#4DA871}
+.rankbadge{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;font-size:11px;font-weight:800}
+.rankbadge.gold{background:linear-gradient(135deg,#F4D27A,#D9A52F);color:#3D2A06}
+.rankbadge.silver{background:linear-gradient(135deg,#E2E6EC,#B8BFC8);color:#2E3036}
+.rankbadge.bronze{background:linear-gradient(135deg,#E3B189,#B17A4B);color:#3A220E}
+
+/* ---------- tooltip HTML flotante (§5.5) ---------- */
+.scfloat{position:fixed;z-index:9999;background:#1F2A34;color:#F2F0E8;padding:11px 14px;border-radius:11px;
+  font-size:11px;line-height:1.5;font-weight:600;max-width:320px;pointer-events:none;
+  box-shadow:0 14px 36px rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.07);
+  opacity:0;transform:translateY(-4px);transition:opacity .14s ease,transform .14s ease}
+.scfloat.on{opacity:1;transform:none}
+.scfloat.pinned{pointer-events:auto;box-shadow:0 18px 44px rgba(0,0,0,.42);padding-right:30px;max-height:80vh;overflow-y:auto}
+.scfloat .schead{color:#7DCFB6;font-weight:800;font-size:11.5px;margin-bottom:7px;padding-bottom:6px;
+  border-bottom:1px solid rgba(255,255,255,.08)}
+.scfloat .scrow{display:grid;grid-template-columns:auto auto;gap:8px 16px;align-items:baseline;
+  font-variant-numeric:tabular-nums}
+.scfloat .scrow span:first-child{color:#A6AAB5;font-weight:600;font-size:10.5px}
+.scfloat .scrow span:last-child{color:#fff;font-weight:700;text-align:right;font-size:11px}
+.scfloat .scrow span.pos{color:#7DCFB6}.scfloat .scrow span.neg{color:#F08080}
+
+/* ---------- leyenda HTML clickeable ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:10px}
+/* v5 · con 5+ entradas la leyenda va en rejilla: en columna se come el alto de la card */
+.legend.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:4px 16px}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#4F5B6E;cursor:pointer;
+  user-select:none;transition:opacity .2s ease;min-width:150px}
+.legend-item.off{opacity:.35}
+.legend-dot{width:9px;height:9px;border-radius:3px;flex:0 0 auto}   /* cuadrado redondeado, no círculo */
+.legend-item b{margin-left:auto;font-weight:700;color:#1B2538;font-variant-numeric:tabular-nums}
+.legend-item.ln .legend-dot{height:3px;width:14px;border-radius:2px}  /* raya = serie de línea */
+
+/* ---------- doughnut + lista bidireccional ---------- */
+.dnwrap{display:flex;align-items:center;gap:14px}
+.dnwrap>.cw{flex:0 0 176px;width:176px;position:relative;height:200px}
+.dnrow{display:grid;grid-template-columns:9px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 8px;
+  border-radius:8px;cursor:pointer;border:1px solid transparent;font-size:12px}
+.dnrow:hover{background:#F8FAFC;border-color:#F1F4F9}
+.dnrow.act{background:#ECF4F6;border-color:rgba(30,107,122,.32)}
+.dnrow b{font-variant-numeric:tabular-nums}
+
+/* ---------- timeline de eventos ---------- */
+.event-week-header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-radius:8px;margin-bottom:6px;
+  background:linear-gradient(90deg,#F5F8FA 0%,#FFFFFF 100%);border-left:3px solid #1E6B7A}
+.event-week-header .ewh-week{font-family:'Manrope','Inter',sans-serif;font-weight:800;font-size:12px;color:#1E6B7A}
+.event-week-header .ewh-count{margin-left:auto;font-size:11px;font-weight:700;background:#1E6B7A;color:#fff;
+  padding:2px 8px;border-radius:30px}
+.event-item{display:flex;align-items:center;gap:11px;padding:9px 12px;background:#fff;border-radius:9px;
+  border:1px solid #E5E9F0;border-left:3px solid #F4B860}
+.event-item.crit{border-left-color:#F08080}
+.event-item:hover{border-color:#B8DDE3;box-shadow:0 1px 2px rgba(27,37,56,.04),0 1px 3px rgba(27,37,56,.06)}
+.event-icon{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:#FCE8C8;color:#C88B3D;flex-shrink:0}
+.event-item .e-date{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;font-weight:700;color:#1B2538}
+
+/* ---------- búsqueda con dropdown ---------- */
+.td-search{position:relative}
+.td-search input{width:100%;padding:11px 14px 11px 38px;border-radius:10px;border:1px solid #E5E9F0;
+  font-size:13.5px;font-weight:600;font-family:inherit;background:#fff;outline:none;transition:all .2s ease;color:#1B2538}
+.td-search input:focus{border-color:#1E6B7A;box-shadow:0 0 0 3px rgba(30,107,122,.1)}
+.td-search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;
+  color:#8893A6;pointer-events:none}
+.td-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #E5E9F0;
+  border-radius:10px;box-shadow:0 10px 30px rgba(27,37,56,.14);max-height:300px;overflow-y:auto;z-index:100;display:none}
+.td-dropdown.show{display:block}
+.td-dropdown-item{padding:10px 14px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;gap:10px;
+  border-bottom:1px solid #F1F4F9}
+.td-dropdown-item:last-child{border-bottom:none}
+.td-dropdown-item:hover{background:#ECF4F6}
+.td-dropdown-item .it-meta{font-size:10.5px;color:#8893A6}
+
+/* ---------- cabecera de sección numerada (PANEL) ----------
+   OJO: se llama .sechead, no .shead — .shead pertenece al sistema editorial
+   (tokens-editorial.css) y un brief carga ambos archivos. */
+.sechead{display:flex;align-items:baseline;gap:14px;margin:22px 0 14px}
+.sechead .sn{font-family:'Manrope','Inter',sans-serif;font-size:11px;font-weight:800;color:#1E6B7A;letter-spacing:.04em;flex:0 0 auto}
+.sechead h2{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0}
+.sechead .sub{font-size:11.5px;color:#8893A6;margin-top:3px;font-weight:500}
+.st-rule{display:flex;align-items:center;gap:8px}
+.st-rule::after{content:'';flex:1;height:2px;border-radius:2px;background:linear-gradient(90deg,#B8DDE3,transparent)}
+
+/* ---------- banner de cross-filter activo ---------- */
+.xfilter{display:none;align-items:center;gap:10px;background:#ECF4F6;border:1px solid rgba(30,107,122,.4);
+  border-radius:12px;padding:9px 14px;margin-bottom:15px;font-size:12px;font-weight:600;color:#1E6B7A}
+.xfilter.show{display:flex}
+
+/* ---------- estados vacío / error recuperable ---------- */
+.empty-state{text-align:center;padding:40px 20px;color:#8893A6;font-size:12.5px;background:#F1F4F9;border-radius:10px}
+.empty-state .empty-icon{width:36px;height:36px;margin:0 auto 8px;opacity:.4}
+.retry-note{background:#FCE8C8;border:1px solid #F4B860;color:#A06B22;border-radius:10px;padding:11px 14px;font-size:12px}
+.retry-note a{color:#1E6B7A;font-weight:700;text-decoration:none;cursor:pointer}
+
+/* ---------- botón de export flotante ---------- */
+.btn-export{position:fixed;right:22px;bottom:22px;z-index:60;display:inline-flex;align-items:center;gap:8px;
+  background:#2A2A34;color:#fff;border:none;border-radius:12px;padding:11px 16px;font-family:inherit;
+  font-size:12px;font-weight:700;letter-spacing:.04em;cursor:pointer;box-shadow:0 6px 22px rgba(35,40,30,.28)}
+.btn-export:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(30,107,122,.4)}
+.btn-export:disabled{opacity:.6;cursor:wait;transform:none}
+.export-overlay{position:fixed;inset:0;background:rgba(15,42,56,.45);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;z-index:99999}
+.export-overlay.show{display:flex}
+.export-modal{background:#fff;border-radius:14px;padding:28px 36px;text-align:center;min-width:320px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.export-modal .pe-spinner{width:48px;height:48px;border:4px solid #E8EEF1;border-top-color:#1E6B7A;
+  border-radius:50%;margin:0 auto 14px}
+
+/* ---------- scrollbar sólo donde scrollea, nunca global ---------- */
+.tscroll{scrollbar-width:thin;scrollbar-color:#E5E9F0 transparent}
+.tscroll::-webkit-scrollbar{width:7px;height:7px}
+.tscroll::-webkit-scrollbar-track{background:transparent}
+.tscroll::-webkit-scrollbar-thumb{background:#E5E9F0;border-radius:10px}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v4 — arquitectura de dashboard analítico (referencia JE/RENTROL P&L, 49 charts)
+   Shell · brush de periodo · modales · popovers · grid de roster · tabla comando.
+   Ver SKILL.md §11–§16.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ---------- shell: sidebar agrupado por secciones § ---------- */
+.side{width:264px;flex:0 0 264px;position:sticky;top:0;height:100vh;display:flex;z-index:30;
+  color:#B8BCC6;border-right:1px solid rgba(0,0,0,.2);
+  background:linear-gradient(176deg,#34343F,#2A2A34 58%,#1F1F28)}
+/* tira vertical: writing-mode + rotate(180deg) = se lee de abajo hacia arriba */
+.vstrip{width:26px;flex:0 0 26px;display:flex;align-items:center;justify-content:center;padding:14px 0;
+  background:rgba(0,0,0,.16);border-right:1px solid rgba(255,255,255,.06)}
+.vstrip span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:8.5px;font-weight:700;
+  letter-spacing:.34em;text-transform:uppercase;color:#5A5E6A;white-space:nowrap}
+.sidebody{flex:1;display:flex;flex-direction:column;padding:22px 16px 16px;overflow-y:auto}
+.secmark{display:flex;align-items:center;gap:8px;margin:15px 8px 7px}
+.secmark .num{font-size:8.5px;font-weight:700;color:#B0D028;letter-spacing:.1em}
+.secmark .tx{font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:#6A6E7A;font-weight:700}
+.secmark .ln{flex:1;height:1px;background:rgba(255,255,255,.08)}
+.nav{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:11px;cursor:pointer;
+  color:#AEB2BC;font-weight:600;font-size:12.5px;border:1px solid transparent;margin-bottom:1px;
+  position:relative;transition:.2s cubic-bezier(.4,0,.2,1)}
+.nav svg{width:17px;height:17px;flex:0 0 17px;stroke-width:1.8;opacity:.7;transition:.2s}
+.nav:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav:hover svg{opacity:1;color:#B0D028}
+.nav.on{background:linear-gradient(100deg,rgba(176,208,40,.16),rgba(176,208,40,.04));color:#fff;
+  border-color:rgba(176,208,40,.25)}
+.nav.on svg{opacity:1;color:#B0D028}
+/* marcador activo que SALE del padding del sidebar (left = -padding) con glow */
+.nav.on::before{content:'';position:absolute;left:-16px;top:50%;transform:translateY(-50%);width:3px;height:20px;
+  background:#B0D028;border-radius:0 3px 3px 0;box-shadow:0 0 12px rgba(176,208,40,.4)}
+.nav .badge{margin-left:auto;background:#B0D028;color:#2A2A34;font-size:9.5px;font-weight:700;
+  padding:1px 7px;border-radius:20px;min-width:19px;text-align:center}
+.sfoot{margin-top:auto;padding-top:14px}
+.sfootcard{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);border-radius:12px;
+  padding:12px 13px;cursor:pointer;transition:border-color .15s}
+.sfootcard:hover{border-color:rgba(176,208,40,.28)}
+.sfootcard .lbl{font-size:8.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8E929E}
+.sfootcard .big{font-family:'Space Grotesk','Manrope',sans-serif;font-size:20px;font-weight:700;color:#B0D028}
+
+/* ---------- shell: rail derecho de contexto ---------- */
+.rrail{width:240px;flex:0 0 240px;padding:24px 18px 40px 0;display:flex;flex-direction:column;gap:13px}
+.rcard{background:#fff;border:1px solid #E5E9F0;border-radius:15px;padding:15px;
+  box-shadow:0 1px 2px rgba(27,37,56,.04),0 1px 3px rgba(27,37,56,.06)}
+.rtitle{font-size:8.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#8893A6;
+  margin-bottom:11px;display:flex;align-items:center;gap:7px}
+.rtitle .d{width:6px;height:6px;border-radius:50%}
+.rmetric{display:flex;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid #F1F4F9}
+.rmetric:last-child{border-bottom:none}
+.rmetric .mic{width:33px;height:33px;border-radius:10px;display:grid;place-items:center;flex:0 0 33px}
+.rmetric .mic svg{width:15px;height:15px;stroke-width:2}
+.rmetric .mtx{flex:1;min-width:0}
+.rmetric .mtx .l{font-size:9.5px;font-weight:600;color:#8893A6;letter-spacing:.04em}
+.rmetric .mtx .v{font-family:'Space Grotesk','Manrope',sans-serif;font-size:17px;font-weight:700;
+  color:#1B2538;line-height:1.15;font-variant-numeric:tabular-nums}
+.rmetric .mtx .s{font-size:9.5px;color:#8893A6;font-weight:500}
+@media(max-width:1480px){.rrail{display:none}}   /* el rail es contexto, no contenido: cae primero */
+
+/* ---------- shell: cabecera de vista ---------- */
+.pagehead{display:flex;align-items:flex-start;gap:18px;margin-bottom:20px}
+.pagehead .mk{flex:0 0 auto;padding-top:5px}
+.pagehead .mk .ln{width:42px;height:2px;background:#8FB01E;margin-bottom:8px}
+.pagehead .mk .s{font-size:8.5px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#8893A6;line-height:1.5}
+.pagehead h1{font-family:'Space Grotesk','Manrope',sans-serif;font-size:27px;font-weight:600;
+  letter-spacing:-.8px;line-height:1.05;margin:0}
+.pagehead h1 em{font-family:'Newsreader',serif;font-style:italic;font-weight:400;color:#5A5F68}
+
+/* ---------- shell: píldoras KPI del topbar ---------- */
+.kpipill{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid #E5E9F0;
+  border-radius:13px;padding:7px 14px 7px 8px;box-shadow:0 1px 2px rgba(27,37,56,.04),0 1px 3px rgba(27,37,56,.06)}
+.kpipill .ic{width:31px;height:31px;border-radius:9px;display:grid;place-items:center;flex:0 0 31px}
+.kpipill .ic svg{width:15px;height:15px;stroke-width:2}
+.kpipill .l{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#8893A6}
+.kpipill .v{font-family:'Space Grotesk','Manrope',sans-serif;font-size:15px;font-weight:700;line-height:1.15;
+  font-variant-numeric:tabular-nums}
+
+/* ---------- ⭐ selector de periodo con brush (assets/period-brush.js) ---------- */
+.wkbtnwrap{position:relative}
+.wkbtn{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid #E5E9F0;border-radius:12px;
+  padding:9px 14px;font-family:inherit;font-size:12px;font-weight:600;color:#4F5B6E;cursor:pointer;
+  box-shadow:0 1px 2px rgba(27,37,56,.04);transition:.15s}
+.wkbtn:hover{border-color:#8FB01E}
+.wkbtn b{color:#1B2538;font-family:'Space Grotesk','Manrope',sans-serif;font-weight:700}
+.wkPanel{position:absolute;right:0;top:48px;width:430px;background:#fff;border:1px solid #E5E9F0;
+  border-radius:18px;box-shadow:0 2px 10px rgba(35,40,30,.08),0 26px 56px rgba(35,40,30,.14);
+  padding:18px;z-index:40;display:none}
+.wkPanel.show{display:block;animation:fadeIn .2s var(--ez,ease) both}
+.wkPanel .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.wkPanel .ph .t{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8893A6}
+.wkPanel .ph .rng{font-family:'Space Grotesk','Manrope',sans-serif;font-size:15px;font-weight:700;color:#1B2538}
+.wkpresets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.wkpresets button{flex:1;min-width:54px;font-family:inherit;font-size:11px;font-weight:700;padding:7px 8px;
+  border:1px solid #E5E9F0;background:#F8F7F2;border-radius:9px;color:#4F5B6E;cursor:pointer;transition:.13s}
+.wkpresets button:hover{background:#2A2A34;color:#B0D028;border-color:transparent}
+.wkpresets button.on{background:#8FB01E;color:#fff;border-color:transparent}
+.wkpresets button.rec{background:#DDF0E4;color:#74921A;border-color:transparent;white-space:nowrap}
+.wkpresets button.rec:hover{background:#8FB01E;color:#fff}
+/* 4 capas absolutas sobre la misma caja; 74px = 52 de barras + 22 de eje */
+.brush{position:relative;height:74px;margin:2px 4px 8px;user-select:none}
+.brush .bars{position:absolute;inset:0 0 22px 0;display:flex;gap:3px;align-items:flex-end}
+.brush .bar{flex:1;background:#F1F0E9;border-radius:3px 3px 0 0;min-height:3px;
+  transition:background .15s,height .3s}
+.brush .bar.in{background:linear-gradient(180deg,#B0D028,#8FB01E)}
+.brush .axis{position:absolute;left:0;right:0;bottom:0;height:18px;display:flex;gap:3px}
+.brush .axis span{flex:1;text-align:center;font-family:'Space Grotesk','Manrope',sans-serif;font-size:8px;
+  font-weight:600;color:#B6BDC0}
+.brush .sel{position:absolute;top:0;bottom:22px;background:rgba(143,176,30,.1);
+  border-left:2px solid #8FB01E;border-right:2px solid #8FB01E;border-radius:4px;pointer-events:none}
+.brush .range{position:absolute;top:0;bottom:22px;cursor:grab}
+.brush .handle{position:absolute;top:0;bottom:22px;width:14px;margin-left:-7px;cursor:ew-resize;
+  display:flex;align-items:center;justify-content:center;z-index:3}
+.brush .handle::after{content:'';width:6px;height:34px;background:#8FB01E;border-radius:4px;
+  border:1.5px solid #fff;box-shadow:0 2px 6px rgba(143,176,30,.5)}
+.wkhint{font-size:10px;color:#8893A6;font-weight:500;text-align:center;letter-spacing:.02em}
+
+/* ---------- ⭐ modal de desglose (assets/drilldown.js) ---------- */
+.card-modal-ovl{position:fixed;inset:0;background:rgba(31,31,40,.45);z-index:9000;display:flex;
+  align-items:flex-start;justify-content:center;padding:50px 20px;overflow:auto}
+.card-modal{background:#fff;border-radius:18px;max-width:780px;width:100%;padding:0 0 24px;
+  box-shadow:0 30px 80px rgba(0,0,0,.32);animation:fadeIn .16s var(--ez,ease) both}
+.card-modal.wide{max-width:1060px}
+.md-head{padding:22px 26px 18px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid #EEEDE7}
+.md-titlerow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.md-head h2{margin:0;font-size:18px;font-weight:700}
+.md-tag{background:#F0EEE6;color:#74921A;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;
+  letter-spacing:.06em;text-transform:uppercase}
+.md-period{color:#9a9a8c;font-size:13px;font-weight:700}
+.md-sub{color:#9a9a8c;font-size:12.5px;margin-top:4px}
+.md-close{border:none;background:none;font-size:24px;color:#b8b8a8;cursor:pointer;line-height:1;padding:0 2px}
+.md-close:hover{color:#2A2A34}
+.md-tiles{padding:18px 26px 0;display:flex;gap:12px;flex-wrap:wrap}
+.md-tile{background:#F8F7F2;border-radius:12px;padding:14px 16px;flex:1;min-width:148px}
+.md-tile .l{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#9a9a8c;font-weight:700}
+.md-tile .v{font-size:25px;font-weight:800;margin-top:2px;font-family:'Space Grotesk','Manrope',sans-serif;
+  font-variant-numeric:tabular-nums}
+.md-tile .s{font-size:11.5px;color:#9a9a8c;margin-top:2px}
+.md-tablewrap{padding:16px 26px 0;max-height:420px;overflow:auto}
+.md-table{width:100%;border-collapse:collapse;font-size:13px}
+.md-table thead th{position:sticky;top:0;background:#fff;color:#9a9a8c;font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.05em;text-align:left;padding:0 10px 6px;font-weight:700}
+.md-table th.r,.md-table td.r{text-align:right;font-variant-numeric:tabular-nums}
+.md-table td{padding:7px 10px;border-top:1px solid #F0EFE9}
+.md-chart{padding:0 26px;margin-top:14px;position:relative}
+.md-empty{padding:20px 26px;color:#9a9a8c;font-size:13px}
+
+/* ---------- ⭐ popover de desglose ---------- */
+.dl-pop{position:fixed;z-index:9999;width:340px;max-width:90vw;background:#2A2A34;color:#F2F0E8;
+  padding:14px 16px;border-radius:13px;border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 18px 42px rgba(0,0,0,.36);opacity:0;pointer-events:none;transform:translateX(-6px);
+  transition:opacity .16s ease,transform .16s ease}
+.dl-pop.on{opacity:1;transform:none}
+.dl-pop-head{font-family:'Newsreader',serif;font-style:italic;font-weight:600;font-size:14px;color:#fff;margin-bottom:2px}
+.dl-pop-bullet{display:inline-block;width:7px;height:7px;border-radius:50%;background:#8FB01E;margin-right:8px;vertical-align:middle}
+.dl-pop-sub{font-family:'Space Grotesk','Manrope',sans-serif;font-size:10px;font-weight:600;color:#A6AAB5;
+  margin-bottom:11px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.08)}
+.dl-pop-list{max-height:320px;overflow-y:auto;padding-right:4px}
+.dl-pop-list::-webkit-scrollbar{width:5px}
+.dl-pop-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:5px}
+.dl-popr{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:7px 0;align-items:center;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.dl-popr:last-child{border-bottom:none}
+.dl-pop-name{grid-column:1/2;grid-row:1/2;font-weight:700;font-size:10.5px;color:#fff;line-height:1.3;
+  display:flex;align-items:center;gap:6px}
+.dl-pop-dot{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dl-pop-bar{grid-column:1/2;grid-row:2/3;height:3px;background:rgba(255,255,255,.06);border-radius:3px;
+  overflow:hidden;margin-top:3px}
+.dl-pop-fill{height:100%;border-radius:3px;transition:width .25s}
+.dl-pop-num{grid-column:2/3;grid-row:1/3;font-family:'Space Grotesk','Manrope',sans-serif;font-weight:800;
+  font-size:13px;color:#fff;text-align:right;font-variant-numeric:tabular-nums}
+.dl-pop-pct{font-size:9.5px;color:#A6AAB5;font-weight:600;margin-left:4px}
+.dl-pop-foot{margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);font-size:9.5px;
+  color:#7A7E8A;font-weight:600;text-align:center;font-style:italic}
+
+/* ---------- spark card + CTA en tarjeta fijada ---------- */
+.dl-spark{position:fixed;z-index:200;width:240px;background:#2A2A34;color:#F2F0E8;padding:12px 14px;
+  border-radius:12px;font-size:11px;line-height:1.5;border:1px solid rgba(255,255,255,.07);
+  box-shadow:0 14px 32px rgba(0,0,0,.32);opacity:0;pointer-events:none;transform:translateY(-4px);
+  transition:opacity .16s ease,transform .16s ease}
+.dl-spark.on{opacity:1;transform:none}
+.dl-stag{display:inline-block;font-family:'Space Grotesk','Manrope',sans-serif;font-size:9.5px;font-weight:700;
+  padding:3px 7px;border-radius:6px;margin:0 4px 4px 0}
+.dl-stag.g{background:rgba(143,176,30,.18);color:#B0D028;border:1px solid rgba(143,176,30,.32)}
+.dl-stag.a{background:rgba(217,155,46,.16);color:#E7B25A;border:1px solid rgba(217,155,46,.28)}
+.scfloat .scclose{position:absolute;top:6px;right:8px;width:22px;height:22px;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;font-size:16px;color:#A6AAB5;border-radius:50%;font-weight:700;user-select:none}
+.scfloat .scclose:hover{color:#fff;background:rgba(255,255,255,.08)}
+.sccta{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);text-align:center}
+.sccta span{cursor:pointer;background:#8FB01E;color:#2A2A34;font-weight:700;font-size:10.5px;padding:5px 12px;border-radius:7px}
+
+/* ---------- ⭐ roster · grid semanal con heat ---------- */
+.roster-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 14px;padding:10px 12px;
+  background:#F1F4F9;border:1px solid #E5E9F0;border-radius:11px}
+.rc-seg{display:inline-flex;background:#fff;border:1px solid #E5E9F0;border-radius:9px;padding:2px;gap:1px}
+.rc-seg button{background:transparent;border:none;padding:6px 11px;font-family:inherit;font-size:10.5px;
+  font-weight:700;letter-spacing:.04em;color:#8893A6;cursor:pointer;border-radius:7px;transition:.15s}
+.rc-seg button.on{background:#2A2A34;color:#fff;box-shadow:0 2px 8px rgba(35,40,30,.15)}
+.rc-summary{margin-left:auto;font-size:11px;color:#8893A6;font-weight:600}
+.rc-summary b{color:#1B2538;font-weight:700}
+.roster-wrap{background:#fff;border:1px solid #E5E9F0;border-radius:11px;overflow:auto;max-height:560px;position:relative}
+.roster-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}
+.roster-tbl thead th{position:sticky;top:0;z-index:5;background:#F1F4F9;border-bottom:1.5px solid #DEDCD2;
+  padding:8px 6px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4F5B6E;
+  text-align:right;white-space:nowrap;cursor:pointer;user-select:none}
+.roster-tbl thead th.left{text-align:left}
+.roster-tbl thead th.sorted{color:#74921A;background:rgba(143,176,30,.05)}
+/* columna congelada: el JE original NO la tiene — aquí sí, porque con 27 semanas se pierde el nombre */
+.roster-tbl th.freeze,.roster-tbl td.freeze{position:sticky;left:0;z-index:4;background:#fff}
+.roster-tbl thead th.freeze{z-index:6;background:#F1F4F9}
+.roster-tbl tbody tr{cursor:pointer;transition:background .12s}
+.roster-tbl tbody tr:hover{background:rgba(176,208,40,.06)}
+.roster-tbl tbody tr:hover td.freeze{background:#F7FAF0}
+.roster-tbl tbody tr.band-star{background:rgba(77,168,113,.04)}
+.roster-tbl tbody tr.band-rev{background:rgba(217,104,90,.045)}
+.roster-tbl td{padding:7px 6px;border-bottom:1px solid #F1F4F9;text-align:right;white-space:nowrap;
+  font-family:'Space Grotesk','Manrope',sans-serif;font-weight:600;font-variant-numeric:tabular-nums}
+.roster-tbl td.left{text-align:left;font-family:inherit}
+.roster-tbl td.idx{color:#B6BDC0;font-size:9px;text-align:center}
+.roster-tbl .wkcell{padding:5px 3px;font-size:10.5px;font-weight:700;min-width:42px;position:relative}
+.roster-tbl .wkcell.hasev{box-shadow:inset 0 0 0 1.5px rgba(120,120,130,.35)}
+/* escala de heat de 5 pasos, RELATIVA al máximo visible; contraste invertido en los extremos */
+.roster-tbl .wkcell.c0{color:#B6BDC0;background:transparent}
+.roster-tbl .wkcell.c1{color:#5B6B7E;background:rgba(125,207,182,.10)}
+.roster-tbl .wkcell.c2{color:#1c5f3a;background:rgba(125,207,182,.28)}
+.roster-tbl .wkcell.c3{color:#0f4d2a;background:rgba(106,184,154,.55);font-weight:800}
+.roster-tbl .wkcell.c4{color:#fff;background:#3DA890;font-weight:800}
+.evwrap{position:absolute;top:1px;right:1px;display:flex;gap:1px;line-height:1}
+.evdot{display:inline-flex;align-items:center;justify-content:center;width:11px;height:11px;border-radius:3px;
+  font-size:7.5px;font-weight:800;color:#fff}
+.evdot.evoff{background:#8a93a3}.evdot.evdown{background:#e07a5f}
+.roster-tbl .sbar{display:inline-block;width:60px;height:5px;background:#F1F0E9;border-radius:3px;
+  overflow:hidden;vertical-align:middle;margin-right:5px}
+.roster-tbl .sfill{height:100%;border-radius:3px;transition:width .3s}
+.stat-badge{display:inline-flex;align-items:center;gap:3px;padding:2.5px 8px;border-radius:6px;font-size:9.5px;font-weight:700}
+.st-star{background:#DDF0E4;color:#4DA871}.st-good{background:#EDF4D2;color:#5E7A14}
+.st-watch{background:#FAE6D0;color:#D98A3C}.st-rev{background:#FAE0DB;color:#D9685A}
+.detgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.detgrid .dk{font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8893A6}
+.detgrid .dv{font-family:'Space Grotesk','Manrope',sans-serif;font-size:14px;font-weight:700}
+.detgrid .ds{font-size:9.5px;color:#8893A6;font-weight:500}
+@media(max-width:1150px){.detgrid{grid-template-columns:repeat(3,1fr)}}
+
+/* ---------- ⭐ tabla comando (cabecera charcoal, grupos, drill) ---------- */
+.cmdtbl-wrap{background:#fff;border:1px solid #E5E9F0;border-radius:14px;overflow:hidden}
+.cmdtbl-wrap.scroll-x{overflow-x:auto}
+.cmdtbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.cmdtbl thead tr{background:#2A2A34;color:#F2F0E8}
+.cmdtbl th{padding:11px 12px;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  color:#C7CAD2;text-align:left;cursor:pointer;user-select:none;white-space:nowrap}
+.cmdtbl th.s{text-align:right}.cmdtbl th.c{text-align:center}
+.cmdtbl th .sortarrow{margin-left:5px;opacity:.45;font-size:8px}
+.cmdtbl th.active{color:#fff}.cmdtbl th.active .sortarrow{opacity:1;color:#B0D028}
+/* cabecera de dos pisos: fila de grupos sobre la fila de columnas */
+.cmdtbl tr.grp th{padding:5px 8px;border:none}
+.cmdtbl .grp-l{font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8893A6;
+  text-align:center;background:#F1F4F9;border-radius:6px}
+.cmdtbl tbody tr{border-bottom:1px solid #F1F4F9;cursor:pointer;transition:background .14s,box-shadow .14s}
+.cmdtbl tbody tr:hover{background:#EDF4D2;box-shadow:inset 3px 0 0 #8FB01E}
+.cmdtbl td{padding:10px 12px;font-weight:600;vertical-align:middle;
+  font-family:'Space Grotesk','Manrope',sans-serif}
+.cmdtbl td.s{text-align:right;font-variant-numeric:tabular-nums}.cmdtbl td.c{text-align:center}
+.cmdtbl td.dim{color:#8893A6}
+.cmdtbl .action{color:#4F5B6E;font-family:inherit;font-weight:600;font-size:10.5px;line-height:1.35;max-width:280px}
+.cmdtbl-foot{padding:9px 14px;background:#F1F4F9;border-top:1px solid #F1F4F9;font-size:10px;
+  color:#8893A6;font-weight:600;text-align:right}
+/* severidad de dos pisos + chip de área + chip de drill que se enciende al hover de fila */
+.sev{display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:5px 9px;border-radius:8px;min-width:64px}
+.sev .lvl{font-size:9px;font-weight:800;letter-spacing:.06em}
+.sev .scr{font-size:8px;font-weight:700;opacity:.75}
+.sev.high{background:#FAE0DB;color:#BE4F42}.sev.med{background:#FAE6D0;color:#D98A3C}.sev.low{background:#F1F0E9;color:#5A5F68}
+.apill{display:inline-block;padding:3px 9px;border-radius:7px;font-family:'Space Grotesk','Manrope',sans-serif;
+  font-size:9.5px;font-weight:800;letter-spacing:.1em}
+.drillchip{display:inline-block;padding:4px 10px;border-radius:7px;font-family:'Space Grotesk','Manrope',sans-serif;
+  font-size:10px;font-weight:700;color:#74921A;background:#EDF4D2;transition:.15s}
+.cmdtbl tbody tr:hover .drillchip{background:#8FB01E;color:#fff}
+.wellpop{cursor:pointer;font-weight:700;color:#1B2538}
+.wellpop-arrow{color:#8FB01E;font-weight:800}
+
+/* ---------- formato condicional de celda ---------- */
+.ptag{display:inline-block;padding:3px 9px;border-radius:6px;font-family:'Space Grotesk','Manrope',sans-serif;
+  font-weight:700;font-size:11px;min-width:46px;text-align:center;font-variant-numeric:tabular-nums}
+.ptag.good{background:rgba(77,168,113,.13);color:#4DA871}
+.ptag.mid{background:rgba(217,155,46,.13);color:#B97F1C}
+.ptag.bad{background:rgba(217,104,90,.13);color:#D9685A}
+/* pérdida en AZUL, convención Tableau: el rojo se reserva para el incumplimiento de meta */
+.npcell{display:inline-block;padding:3px 9px;border-radius:6px;font-family:'Space Grotesk','Manrope',sans-serif;font-weight:700}
+.npcell.bad{background:rgba(95,148,206,.12);color:#4F95CE}
+.npcell.good{background:#DDF0E4;color:#4DA871}
+.npcell.neutral{color:#1B2538}
+.pbarwrap{display:flex;align-items:center;gap:7px;min-width:96px;width:100%}
+.pbarpct{font-family:'Space Grotesk','Manrope',sans-serif;font-size:11px;font-weight:700;min-width:34px;text-align:right}
+
+/* ---------- toolbar de radar multi-selección ---------- */
+.radar-toolbar{display:flex;align-items:center;gap:6px;margin:8px 0 6px;flex-wrap:wrap}
+.rtbtn{font-family:inherit;font-weight:700;font-size:10px;padding:5px 11px;border:1px solid #E5E9F0;
+  background:#fff;color:#4F5B6E;border-radius:7px;cursor:pointer;transition:.15s}
+.rtbtn:hover{border-color:#8FB01E;color:#1B2538;background:#EDF4D2}
+.rtbtn.on{background:#2A2A34;color:#fff;border-color:#2A2A34}
+.rtspacer{flex:1}
+.rtcount{font-family:'Space Grotesk','Manrope',sans-serif;font-size:10px;color:#8893A6;font-weight:700}
+.rtchips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #F1F4F9}
+.rtchip{font-family:inherit;font-weight:600;font-size:10px;padding:4px 9px;border-radius:7px;background:#F1F4F9;
+  color:#4F5B6E;cursor:pointer;border:1px solid #E5E9F0;transition:.15s}
+.rtchip:hover{border-color:#8FB01E}
+.rtchip.on{font-weight:700;border-color:transparent}   /* el color inline del chip gana */
+
+/* ---------- gauge ---------- */
+.gauge{position:relative;width:100%;display:flex;flex-direction:column;align-items:center}
+.gaugewrap{position:relative;width:148px;height:148px}
+
+/* ---------- barra de ranking DOM (lanes / benchmark) ---------- */
+.rbt{display:flex;flex-direction:column;gap:2px}
+.rbt-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:8px 10px;
+  border-radius:10px;cursor:pointer;transition:background .14s,transform .14s}
+.rbt-row:hover{background:#F1F4F9;transform:translateX(2px)}
+.rbt-row.sel{background:#EDF4D2}
+.rbt-name{font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.rbt-track{height:8px;border-radius:5px;background:#F1F0E9;overflow:hidden;position:relative}
+.rbt-fill{height:100%;border-radius:5px;width:0;transition:width .8s var(--ez,ease)}
+.rbt-v{font-family:'Space Grotesk','Manrope',sans-serif;font-weight:700;font-size:14px}
+.rbt-sub{font-size:9.5px;color:#8893A6;font-weight:600;font-family:'Space Grotesk','Manrope',sans-serif}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v5 — 26/Jul/2026 · SISTEMA DE SUPERFICIE, CRECIMIENTO Y NAVEGACIÓN
+   Aditivo: no pisa nada de v4. Lo que cambia de criterio queda anotado.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ---------- 1 · ESCALA TIPOGRÁFICA FLUIDA ----------------------------------
+   Corrección de v4: los títulos salían enormes porque la jerarquía se cargaba
+   con TAMAÑO. En v5 la carga el PESO y el TRACKING; el tamaño casi no se mueve.
+   Regla: máximo 3 tamaños distintos por pantalla. El display sólo en portada. */
+:root{
+  --t-display: clamp(28px, 3.1vw, 38px);   /* portada editorial · era 46 fijo */
+  --t-h1:      clamp(15px, 1.35vw, 18px);  /* topbar de dashboard · era 20 fijo */
+  --t-h2:      clamp(16px, 1.45vw, 19px);  /* cabecera de sección · era 23 fijo */
+  --t-card:    14px;                       /* título de card · era 15 */
+  --t-kpi:     clamp(21px, 1.95vw, 26px);  /* valor KPI · era 24–30 fijo */
+  --t-kpi-lg:  clamp(24px, 2.3vw, 30px);   /* sólo el KPI dominante de la vista */
+  --t-body:    13px;
+  --t-sub:     11.5px;
+  --t-micro:   10.5px;
+  --t-eyebrow: 9px;
+}
+.t-display{font-size:var(--t-display);letter-spacing:-.022em;line-height:1.04}
+.t-h1{font-size:var(--t-h1);font-weight:800;letter-spacing:-.02em}
+.t-h2{font-size:var(--t-h2);font-weight:700;letter-spacing:-.018em}
+.t-eyebrow{font-size:var(--t-eyebrow);font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+/* El número manda sobre su etiqueta: si compiten, gana el número. */
+.num-lead{font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+/* ---------- 2 · SUPERFICIE CON ACENTO POR GRADIENTE -------------------------
+   CAMBIO DE CRITERIO v4→v5: el riel sólido de 3px (.mcard.flag::after,
+   .wcard.l-*::before) queda DEPRECADO. Delata plantilla y corta la card.
+   En v5 el acento es un degradado que nace en la esquina y se apaga, más una
+   sombra teñida con el mismo color. Nunca sombra negra, nunca borde duro.
+   El color entra como triplete RGB para que html2canvas lo hornee bien:
+   color-mix() NO sobrevive al export. */
+.gcard{--a:#1E6B7A;--arg:30,107,122;
+  position:relative;isolation:isolate;
+  background:var(--c-panel,#fff);
+  /* v5.2 · CERO relleno de color dentro de la card. El papel es papel.
+     El acento sólo existe en el borde y en la luz que sale por fuera. */
+  border:1px solid rgba(var(--arg),.22);
+  border-radius:15px;padding:18px;
+  box-shadow:0 1px 2px rgba(27,37,56,.04);
+  transition:transform .22s var(--ez,cubic-bezier(.22,.61,.36,1)),
+             box-shadow .26s var(--ez,cubic-bezier(.22,.61,.36,1)),
+             border-color .22s ease}
+/* HOVER · halo exterior teñido en tres capas, todas fuera del borde:
+     1) un anillo de 3px al 6% que separa la card del fondo
+     2) el contacto neutro
+     3) la sombra proyectada, teñida con el acento y desplazada según --gx
+   --gx lo escribe attachCardGlow(): la luz se inclina en dirección OPUESTA al
+   cursor, como si el puntero fuera la fuente. Es lo único que quedó del brillo. */
+.gcard:hover{transform:translateY(-2px);
+  border-color:rgba(var(--arg),.42);
+  box-shadow:0 0 0 3px rgba(var(--arg),.055),
+             0 2px 4px rgba(27,37,56,.05),
+             var(--gx,0px) 13px 28px -14px rgba(var(--arg),.32)}
+.gcard:active{transform:translateY(-1px)}
+/* Las cards con contenido que se desborda (gráficas, tablas) sí recortan; las de
+   KPI no, para que el halo no se coma su propia sombra. */
+.gcard.clip{overflow:hidden}
+/* variante plana: misma familia, sin acento — para la card neutra de una fila mixta */
+.gcard.flat{--arg:137,147,166;border-color:#E5E9F0}
+/* acentos. Cada uno trae su hex y su triplete; se aplican a .gcard y a .kpi5 */
+.a-teal{--a:#1E6B7A;--arg:30,107,122}          .a-mint{--a:#7DCFB6;--arg:125,207,182}
+.a-coral{--a:#F08080;--arg:240,128,128}        .a-amber{--a:#F4B860;--arg:244,184,96}
+.a-lav{--a:#9D8FCB;--arg:157,143,203}          .a-sky{--a:#6BAED6;--arg:107,174,214}
+.a-success{--a:#4CAF7D;--arg:76,175,125}       .a-warn{--a:#E6A23C;--arg:230,162,60}
+.a-danger{--a:#D9534F;--arg:217,83,79}         .a-ink{--a:#1B2538;--arg:27,37,56}
+.a-lime{--a:#8FB01E;--arg:143,176,30}          .a-violet{--a:#7E72C0;--arg:126,114,192}
+
+/* ---------- 3 · KPI CARD CON TASA DE CRECIMIENTO ---------------------------
+   Anatomía fija: icono + pill de variación · etiqueta · valor con unidad ·
+   sparkline · pie comparativo. El pie NO es decorativo: sin la referencia,
+   una variación no significa nada. */
+.kpi5{display:flex;flex-direction:column;gap:0;min-height:148px;padding:17px 18px 15px}
+.kpi5 .k-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+.kpi5 .k-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  color:var(--a);background:rgba(var(--arg),.11);flex:0 0 auto;
+  transition:transform .22s var(--ez,ease),background .22s ease}
+.gcard:hover .k-ic{transform:scale(1.06);background:rgba(var(--arg),.17)}
+/* ETIQUETA: mayúsculas con tracking amplio y peso medio. El label no compite con la
+   cifra por tamaño — compite por espaciado, que es lo que lo hace legible en pequeño. */
+.kpi5 .k-lbl{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--c-mut,#8893A6);line-height:1.3}
+/* VALOR: es el único elemento grande de la card. Tinta casi plena, tracking negativo. */
+.kpi5 .k-val{font-family:'Manrope','Space Grotesk','Inter',sans-serif;font-size:var(--t-kpi);
+  font-weight:800;letter-spacing:-.028em;color:var(--c-text,#1B2538);
+  font-variant-numeric:tabular-nums;line-height:1.04;margin-top:7px;display:flex;align-items:baseline;gap:6px}
+.kpi5 .k-val small{font-size:.46em;font-weight:700;color:var(--c-mut,#8893A6);letter-spacing:0}
+.kpi5.lead .k-val{font-size:var(--t-kpi-lg)}
+.kpi5 .k-spark{height:32px;margin:10px 0 2px;position:relative}
+/* PIE: contexto en dos piezas, gris medio. Sin borde superior — la separación la da el aire. */
+.kpi5 .k-foot{font-size:11px;color:var(--c-mut,#8893A6);margin-top:auto;padding-top:10px;
+  display:flex;justify-content:space-between;gap:8px;align-items:baseline;line-height:1.35}
+.kpi5 .k-foot b{color:var(--c-text2,#4F5B6E);font-weight:700;font-variant-numeric:tabular-nums}
+/* variante sin sparkline: el contexto pasa a dos renglones, como en el panel de dispatch */
+.kpi5.stack .k-foot{flex-direction:column;align-items:flex-start;gap:2px;padding-top:8px}
+
+/* ---------- 4 · PILL DE VARIACIÓN ------------------------------------------
+   REGLA DURA: el color lo decide el JUICIO, no el signo. En rotación, downtime
+   o costo, bajar es bueno. Por eso .up/.down sólo eligen la flecha y
+   .good/.bad/.neu eligen el color. Colorear por signo es el error clásico. */
+.gr{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;
+  padding:4px 9px 4px 7px;border-radius:30px;font-variant-numeric:tabular-nums;
+  letter-spacing:-.01em;white-space:nowrap;line-height:1;
+  transition:transform .2s var(--ez,ease)}
+.gcard:hover .gr{transform:translateY(-1px)}
+.gr .arw{font-size:12px;line-height:1;transform:translateY(-.5px)}
+.gr.good{background:#E4F4EC;color:#2E8B5F}
+.gr.bad{background:#FCEAE9;color:#C25151}
+.gr.neu{background:#EEF2F7;color:#5A6779}
+.gr.ghost{background:transparent;border:1px dashed var(--c-line,#E5E9F0);color:#8893A6;font-weight:700}
+.gr.sm{font-size:10px;padding:3px 7px 3px 5px}
+/* barra de intensidad opcional bajo la pill, para comparar magnitudes de un vistazo */
+.gr-track{height:3px;border-radius:3px;background:var(--c-surface-2,#F1F4F9);overflow:hidden;margin-top:6px}
+.gr-track i{display:block;height:100%;border-radius:3px;background:currentColor;
+  transform-origin:left;transform:scaleX(var(--s,0));animation:barGrow .8s var(--ez,ease) forwards}
+
+/* ---------- 5 · SPARKLINE Y MINI-BARRAS ------------------------------------ */
+.spark{width:100%;height:100%;display:block;overflow:visible}
+/* El trazado se revela por RECORTE, no por stroke-dasharray.
+   Verificado: con preserveAspectRatio="none" + vector-effect:non-scaling-stroke, Chromium
+   calcula el dash en espacio de dispositivo e ignora pathLength, así que la línea sale
+   cortada a media serie. El recorte es exacto para cualquier largo y no hay que adivinar
+   la longitud del trazo. Es la única excepción a "sólo transform y opacity": un elemento
+   de 34px animado una vez al entrar no compromete el frame rate. */
+.spark path.ln{fill:none;stroke:var(--a);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.spark{clip-path:inset(0 100% 0 0);animation:revealX 1s var(--ez,ease) .12s forwards}
+@keyframes revealX{to{clip-path:inset(0 -4px 0 0)}}
+.spark path.ar{fill:url(#sparkgrad);opacity:0;animation:fadeIn .6s var(--ez,ease) .5s forwards}
+.spark circle.hd{fill:var(--a)}
+.sparkbars{display:flex;align-items:stretch;gap:2px;height:100%}
+.sparkbars i{flex:1;height:100%;background:rgba(var(--arg),.5);border-radius:2px 2px 0 0;
+  transform-origin:bottom;transform:scaleY(0);animation:barGrowY .7s var(--ez,ease) forwards}
+.sparkbars i.on{background:var(--a);box-shadow:0 0 0 1px rgba(var(--arg),.35)}
+@keyframes drawLine{to{stroke-dashoffset:0}}
+@keyframes barGrowY{to{transform:scaleY(var(--s,1))}}
+@keyframes popIn{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
+
+/* ---------- 6 · FILTRO COMPACTO (sustituye al muro de chips) ----------------
+   CAMBIO DE CRITERIO v4→v5: mostrar TODAS las opciones de todas las dimensiones
+   come tres renglones y esconde el contenido. En v5 hay un botón por dimensión
+   que abre un popover con buscador, conteos y acciones. Las chips sueltas se
+   reservan para dimensiones de 2–4 valores (ahí sí caben y ahorran un clic). */
+.fbar5{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:var(--c-panel,#fff);border:1px solid var(--c-line,#E5E9F0);border-radius:14px;
+  padding:9px 11px;box-shadow:0 1px 2px rgba(27,37,56,.04),0 1px 3px rgba(27,37,56,.05)}
+.fbar5 .sep{width:1px;align-self:stretch;background:var(--c-line,#E5E9F0);margin:0 2px}
+.fbar5 .grow{flex:1}
+.fmenu{position:relative}
+.fmenu-btn{display:inline-flex;align-items:center;gap:7px;font-family:inherit;
+  border:1px solid var(--c-line,#E5E9F0);background:var(--c-panel,#fff);color:var(--c-text2,#4F5B6E);
+  border-radius:10px;padding:7px 10px 7px 11px;font-size:11.5px;font-weight:700;cursor:pointer;
+  transition:all .16s var(--ez,ease);white-space:nowrap}
+.fmenu-btn .fk{font-size:9px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#A3ADBC}
+.fmenu-btn .fv{color:var(--c-text,#1B2538)}
+.fmenu-btn .cnt{font-size:10px;font-weight:800;background:#ECF4F6;color:#1E6B7A;
+  border-radius:20px;padding:1px 6px;min-width:18px;text-align:center}
+.fmenu-btn .cv{transition:transform .2s var(--ez,ease);opacity:.5}
+.fmenu-btn:hover{border-color:#B8DDE3;color:#1E6B7A;transform:translateY(-1px);
+  box-shadow:0 3px 10px -4px rgba(30,107,122,.3)}
+.fmenu-btn.on{border-color:#1E6B7A;background:#F4F9FA;color:#1E6B7A}
+.fmenu-btn.on .cv{transform:rotate(180deg);opacity:1}
+.fmenu-btn.dirty{border-color:#1E6B7A}
+.fmenu-pop{position:absolute;z-index:120;top:calc(100% + 7px);left:0;min-width:246px;max-width:320px;
+  background:#fff;border:1px solid var(--c-line,#E5E9F0);border-radius:14px;
+  box-shadow:0 4px 10px rgba(27,37,56,.06),0 22px 48px -16px rgba(27,37,56,.28);
+  padding:10px;opacity:0;transform:translateY(-7px) scale(.985);pointer-events:none;
+  transition:opacity .18s var(--ez,ease),transform .18s var(--ez,ease)}
+.fmenu-pop.show{opacity:1;transform:none;pointer-events:auto}
+.fmenu-pop.right{left:auto;right:0}
+.fmenu-src{width:100%;box-sizing:border-box;border:1px solid var(--c-line,#E5E9F0);border-radius:9px;
+  padding:7px 10px;font-size:12px;font-family:inherit;color:var(--c-text,#1B2538);outline:none;
+  transition:border-color .16s ease,box-shadow .16s ease}
+.fmenu-src:focus{border-color:#1E6B7A;box-shadow:0 0 0 3px rgba(30,107,122,.1)}
+.fmenu-acts{display:flex;gap:6px;margin:8px 0 6px}
+.fmenu-acts button{flex:1;border:1px solid var(--c-line,#E5E9F0);background:#fff;border-radius:8px;
+  padding:5px 8px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:#8893A6;cursor:pointer;font-family:inherit;transition:all .15s ease}
+.fmenu-acts button:hover{border-color:#B8DDE3;color:#1E6B7A;background:#F4F9FA}
+.fmenu-list{max-height:238px;overflow:auto;margin:0 -4px;padding:0 4px;scrollbar-width:thin}
+.fmenu-list::-webkit-scrollbar{width:7px}
+.fmenu-list::-webkit-scrollbar-thumb{background:#E0E5EC;border-radius:9px}
+.fopt{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px;cursor:pointer;
+  font-size:12px;color:var(--c-text2,#4F5B6E);transition:background .13s ease,transform .13s var(--ez,ease)}
+.fopt:hover,.fopt.cur{background:#F4F9FA;transform:translateX(2px)}
+.fopt .bx{width:15px;height:15px;border-radius:5px;border:1.6px solid #D3DAE4;flex:0 0 15px;
+  display:grid;place-items:center;transition:all .16s var(--ez,ease)}
+.fopt .bx svg{opacity:0;transform:scale(.5);transition:all .16s var(--ez,ease);stroke:#fff}
+.fopt.sel .bx{background:#1E6B7A;border-color:#1E6B7A}
+.fopt.sel .bx svg{opacity:1;transform:none}
+.fopt .dot{width:8px;height:8px;border-radius:3px;flex:0 0 8px}
+.fopt .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fopt.sel .tx{color:var(--c-text,#1B2538);font-weight:700}
+/* el conteo por opción es lo que convierte un filtro en un slicer: dice qué vale abrir */
+.fopt .n{font-size:10.5px;font-weight:700;color:#A3ADBC;font-variant-numeric:tabular-nums}
+.fopt .mini{width:34px;height:4px;border-radius:3px;background:#F1F4F9;overflow:hidden;flex:0 0 34px}
+.fopt .mini i{display:block;height:100%;border-radius:3px;background:#C8D3DE;transform-origin:left}
+.fopt.sel .mini i{background:#1E6B7A}
+.fmenu-empty{padding:18px 8px;text-align:center;font-size:11.5px;color:#A3ADBC}
+
+/* ---------- 7 · LISTA DE CUMPLIMIENTO (goal completion) ---------------------
+   Para metas parciales con avance. Vive bajo las gráficas, nunca la sustituye. */
+.glist{display:grid;gap:13px}
+.grow5{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
+.grow5 .gl{font-size:12px;font-weight:600;color:var(--c-text2,#4F5B6E)}
+.grow5 .gp{font-size:11.5px;font-weight:800;color:var(--c-text,#1B2538);font-variant-numeric:tabular-nums}
+.grow5 .gt{grid-column:1/-1;height:7px;border-radius:6px;background:var(--c-surface-2,#F1F4F9);
+  overflow:hidden;position:relative}
+.grow5 .gt i{display:block;height:100%;border-radius:6px;transform-origin:left;
+  transform:scaleX(var(--s,0));animation:barGrow .9s var(--ez,ease) forwards;
+  background:linear-gradient(90deg,rgba(var(--arg),.55),var(--a))}
+.grow5 .gt .mk{position:absolute;top:-3px;bottom:-3px;width:2px;background:#5A6779;opacity:.45;border-radius:2px}
+.grow5:hover .gl{color:var(--c-text,#1B2538)}
+
+/* ---------- 8 · SHELL CON NAVEGACIÓN LATERAL -------------------------------
+   Se usa cuando el entregable tiene 5+ vistas o convive con secciones que no
+   son pestañas del mismo dato. Con 3–4 vistas mandan las pestañas: un sidebar
+   para cuatro entradas es andamio vacío. */
+.app5{display:flex;min-height:100vh}
+.sidenav{width:212px;flex:0 0 212px;background:#16202E;color:#C6CEDA;padding:16px 12px;
+  display:flex;flex-direction:column;gap:3px;position:sticky;top:0;height:100vh;
+  transition:width .26s var(--ez,ease),flex-basis .26s var(--ez,ease)}
+.sidenav.mini{width:62px;flex-basis:62px}
+.sidenav .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 16px;
+  border-bottom:1px solid rgba(255,255,255,.07);margin-bottom:11px}
+.sidenav .brand .bt{font-family:'Manrope','Space Grotesk',sans-serif;font-weight:800;font-size:15px;
+  color:#fff;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;
+  transition:opacity .2s ease,max-width .26s var(--ez,ease);max-width:140px}
+.sidenav.mini .brand .bt,.sidenav.mini .nv .tx,.sidenav.mini .navgrp{opacity:0;max-width:0}
+.navgrp{font-size:8.5px;font-weight:800;letter-spacing:.19em;text-transform:uppercase;color:#5D6B7E;
+  padding:14px 10px 6px;transition:opacity .2s ease}
+.nv{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:10px;cursor:pointer;
+  font-size:12.5px;font-weight:600;color:#9EAABA;position:relative;
+  transition:background .17s ease,color .17s ease,transform .17s var(--ez,ease)}
+.nv:hover{background:rgba(255,255,255,.05);color:#E8EDF3;transform:translateX(2px)}
+.nv.on{background:rgba(125,207,182,.13);color:#fff}
+/* el indicador de activo es una barra que CRECE, no un borde que aparece */
+.nv.on::before{content:'';position:absolute;left:0;top:50%;width:3px;height:0;border-radius:3px;
+  background:#7DCFB6;transform:translateY(-50%);animation:navGrow .3s var(--ez,ease) forwards}
+@keyframes navGrow{to{height:60%}}
+.nv .ic{width:17px;height:17px;flex:0 0 17px;display:grid;place-items:center}
+.nv .tx{white-space:nowrap;overflow:hidden;transition:opacity .2s ease,max-width .26s var(--ez,ease);max-width:150px}
+.nv .bdg{margin-left:auto;font-size:9.5px;font-weight:800;background:#7DCFB6;color:#123;
+  border-radius:20px;padding:1px 6px}
+.sidenav .foot{margin-top:auto;padding-top:12px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#4E5A6B;font-weight:700}
+.navtog{border:0;background:rgba(255,255,255,.06);color:#9EAABA;border-radius:9px;padding:7px;
+  cursor:pointer;display:grid;place-items:center;transition:all .17s ease}
+.navtog:hover{background:rgba(255,255,255,.12);color:#fff}
+@media(max-width:960px){.sidenav{position:fixed;z-index:200;transform:translateX(-100%)}
+  .sidenav.open{transform:none}}
+
+/* ---------- 9 · CABECERA DE SECCIÓN COMPACTA -------------------------------
+   Alternativa a .sechead cuando la vista lleva 4+ secciones y el título grande
+   de v4 se comía el aire. Regla: una sola cabecera grande por vista. */
+.sh5{display:flex;align-items:center;gap:11px;margin:26px 0 12px}
+.sh5 .n{font-size:9.5px;font-weight:800;letter-spacing:.16em;color:#B6BDC0;font-variant-numeric:tabular-nums}
+.sh5 h3{margin:0;font-family:'Manrope','Space Grotesk',sans-serif;font-size:var(--t-card);
+  font-weight:800;letter-spacing:-.018em;color:var(--c-text,#1B2538)}
+.sh5 .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--c-line,#E5E9F0),transparent)}
+.sh5 .rt{font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#B6BDC0}
+
+/* ---------- 10 · SKELETON --------------------------------------------------
+   Se pinta mientras el cálculo corre. Evita el salto de layout y el flash. */
+.sk{background:linear-gradient(90deg,#F1F4F9 8%,#E8EDF3 18%,#F1F4F9 33%);
+  background-size:600px 100%;animation:shimmer 1.25s linear infinite;border-radius:8px;color:transparent!important}
+
+/* ---------- 11 · PULSO VIVO (ui-kit v5) ------------------------------------
+   Tira de señal que se desplaza sin fin. La máscara de la izquierda hace que la
+   onda "emerja" en vez de aparecer cortada contra el borde. */
+.lp-wrap{position:relative;height:34px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 100%);
+          mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 100%)}
+.lp{width:100%;height:100%;display:block}
+/* dos copias de la misma onda y un desplazamiento de exactamente un periodo:
+   el bucle no tiene costura y no hace falta JS por frame */
+.lp-scroll{animation:lpScroll var(--sp,5s) linear infinite;will-change:transform}
+@keyframes lpScroll{to{transform:translateX(-100px)}}
+.lp path{fill:none;stroke:var(--a,#1E6B7A);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+.lp-head{position:absolute;right:3px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;
+  background:var(--a,#1E6B7A);box-shadow:0 0 0 0 rgba(var(--arg,30,107,122),.55);
+  animation:lpHead 2s var(--ez,ease) infinite}
+@keyframes lpHead{0%{box-shadow:0 0 0 0 rgba(var(--arg,30,107,122),.5)}
+                  70%{box-shadow:0 0 0 9px rgba(var(--arg,30,107,122),0)}
+                  100%{box-shadow:0 0 0 0 rgba(var(--arg,30,107,122),0)}}
+/* La etiqueta iba encima de la onda y se pisaban. Ahora la tira reserva su propio
+   renglón: 11px de cabecera y la señal debajo. */
+.lp-wrap[data-lp]{padding-top:11px;height:45px}
+.lp-wrap[data-lp]::after{content:attr(data-lp);position:absolute;left:1px;top:0;
+  font-size:8px;font-weight:800;letter-spacing:.19em;text-transform:uppercase;color:#B6BDC0;line-height:1}
+.lp-wrap[data-lp] .lp{height:34px}
+
+/* ---------- 12 · PUNTO LATENTE SOBRE UNA GRÁFICA ---------------------------
+   Anillo que late en el último punto de una serie. Va en HTML sobre el canvas:
+   dentro del canvas obligaría a repintar la gráfica entera a 60fps. */
+.lpt{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
+  background:var(--c,#1E6B7A);pointer-events:none;z-index:3;
+  box-shadow:0 0 0 2px #fff}
+.lpt::after{content:'';position:absolute;inset:-1px;border-radius:50%;
+  border:1.5px solid var(--c,#1E6B7A);animation:lptRing 2.1s var(--ez,ease) infinite}
+@keyframes lptRing{0%{transform:scale(1);opacity:.65}70%{transform:scale(3.1);opacity:0}100%{transform:scale(3.1);opacity:0}}
+
+/* ---------- 13 · MICRO-ANIMACIÓN DE LA PILL DE VARIACIÓN -------------------
+   Un barrido de luz una sola vez al entrar: dirige el ojo al dato que cambió. */
+.gr{position:relative;overflow:hidden}
+.gr::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.75) 50%,transparent 80%);
+  transform:translateX(-120%);animation:grSheen 1.5s var(--ez,ease) .55s 1}
+@keyframes grSheen{to{transform:translateX(120%)}}
+
+
+/* ---------- 14 · ANIMACIÓN CONDICIONADA AL ESTADO (v5.2) -------------------
+   REGLA: nada se anima porque sí. El movimiento se enciende cuando el estado lo
+   justifica, y se apaga cuando no. Una animación permanente deja de comunicar en
+   diez segundos y se vuelve ruido; una que aparece sólo cuando algo está mal es
+   lo primero que ve el ojo.
+
+   Se aplican por CLASE, y la clase la decide el dato:
+     .sig-alert  urgencia real — umbral crítico cruzado. Late rápido, en rojo.
+     .sig-warn   atención — cerca del umbral. Late lento, en ámbar.
+     .sig-good   logro — un solo golpe al entrar, NO infinito. Celebrar en bucle molesta.
+     (sin clase) neutro — quieto. Es el estado normal y el más frecuente. */
+.sig-alert,.sig-warn{position:relative}
+.sig-alert::after,.sig-warn::after{content:'';position:absolute;inset:-2px;border-radius:inherit;
+  pointer-events:none;border:1.5px solid currentColor;opacity:0}
+.sig-alert::after{animation:sigRing 1.7s var(--ez,ease) infinite}
+.sig-warn::after{animation:sigRing 2.9s var(--ez,ease) infinite}
+@keyframes sigRing{0%{transform:scale(.98);opacity:.55}70%{transform:scale(1.14);opacity:0}100%{opacity:0}}
+.sig-good{animation:sigPop .7s var(--ez,ease) .3s 1}
+@keyframes sigPop{0%{transform:scale(1)}38%{transform:scale(1.07)}100%{transform:scale(1)}}
+/* punto de una serie: sólo late si su último valor cruzó el umbral */
+.lpt.calm{animation:none}
+.lpt.calm::after{display:none}
+/* el pulso vivo en reposo no se desplaza: se queda como línea de base plana */
+.lp-wrap.calm .lp-scroll{animation:none}
+.lp-wrap.calm .lp path{opacity:.4}
+.lp-wrap.calm .lp-head{animation:none;background:#C8D0DA;box-shadow:none}
+
+/* ---------- 15 · SUB-NOTA DE GRÁFICA Y CONTRATO DE INTERACCIÓN (v5.2) ------
+   Toda gráfica y toda card llevan sub-nota. Dos piezas:
+     · la LECTURA — qué dice el gráfico, en una frase, ya interpretada
+     · la ACCIÓN — qué pasa si hago clic, con el color del tipo de acción
+   El color del icono es el contrato: verde-teal filtra, lavanda abre detalle,
+   gris no hace nada. Así se sabe qué es clicable ANTES de probar. */
+.subnote{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding-top:11px;
+  border-top:1px solid var(--c-line,#EEF1F5);font-size:11.5px;line-height:1.5;color:#8893A6}
+.subnote .ic{width:17px;height:17px;border-radius:6px;flex:0 0 17px;display:grid;place-items:center;margin-top:1px}
+.subnote .tx{flex:1;min-width:0}
+.subnote .tx b{color:var(--c-text2,#4F5B6E);font-weight:700}
+.subnote .act{flex:0 0 auto;font-size:10px;font-weight:800;letter-spacing:.05em;white-space:nowrap;
+  padding:3px 9px;border-radius:20px;transition:all .16s var(--ez,ease)}
+/* filtra el tablero */
+.subnote.filter .ic{background:#ECF4F6;color:#1E6B7A}
+.subnote.filter .act{background:#ECF4F6;color:#1E6B7A}
+/* abre detalle sin tocar el filtro */
+.subnote.detail .ic{background:#E2DCF1;color:#7062A8}
+.subnote.detail .act{background:#E2DCF1;color:#7062A8}
+/* sólo lectura */
+.subnote.read .ic{background:#F1F4F9;color:#8893A6}
+.subnote.read .act{display:none}
+.gcard:hover .subnote.filter .act{background:#1E6B7A;color:#fff}
+.gcard:hover .subnote.detail .act{background:#7062A8;color:#fff}
+/* cursor coherente con el contrato: si no hay acción, no hay mano */
+.gcard.act-none canvas{cursor:default!important}
+/* sub-nota dentro de una card de KPI: una línea, sin borde */
+.kpi5 .subnote{margin-top:9px;padding-top:9px;font-size:10.5px}

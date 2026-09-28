@@ -1,0 +1,158 @@
+/* OMMA motion v3 — fluidez obligatoria. Ver SKILL.md §4.
+   Regla: sólo transform y opacity. Un solo easing dominante. Se anima lo que está vivo. */
+
+:root{
+  --ez:cubic-bezier(.22,.61,.36,1);      /* easeOutQuart — el dominante */
+  --ez2:cubic-bezier(.22,.8,.35,1);      /* variante para entradas de panel */
+  --d-fast:.12s; --d-chip:.15s; --d-card:.2s; --d-page:.3s; --d-bar:.85s;
+}
+
+/* ================= keyframes ================= */
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:none}}
+/* Un subpanel que reaparece arranca en .45, no en 0 → sin flash blanco */
+@keyframes paneIn{from{opacity:.45}to{opacity:1}}
+@keyframes bumpKpi{0%{transform:none}45%{transform:translateY(-4px) scale(1.015)}100%{transform:none}}
+@keyframes barGrow{from{transform:scaleX(0)}to{transform:scaleX(var(--s,1))}}
+@keyframes sheen{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+@keyframes shimmer{0%{background-position:-200px 0}100%{background-position:200px 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes softPulse{0%,100%{opacity:1}50%{opacity:.45}}
+/* Pulso "LIVE" de un solo nodo: aquí sí se acepta box-shadow (un elemento, no una lista) */
+@keyframes pulseLive{0%{box-shadow:0 0 0 0 rgba(125,207,182,.7)}70%{box-shadow:0 0 0 8px rgba(125,207,182,0)}100%{box-shadow:0 0 0 0 rgba(125,207,182,0)}}
+
+/* ================= paneles y pestañas ================= */
+[data-pane].active,.tabpanel.active,.page.on{animation:fadeIn var(--d-page) var(--ez) both}
+.subpane.active{animation:paneIn .12s ease-out both}
+.detail-card.show,.scfloat.on{animation:fadeIn .15s var(--ez) both}
+
+/* ================= entrada escalonada ================= */
+/* Uso: <tr style="--i:3"> · el delay lo calcula el índice, nunca un JS por elemento */
+.stagger>*{animation:fadeIn .38s var(--ez) both;animation-delay:calc(var(--i,0) * 55ms)}
+.stagger-chips>*{animation-delay:calc(var(--i,0) * 60ms)}
+.stagger-cal>*{animation-delay:calc(var(--i,0) * 28ms)}
+tbody.stagger>tr{contain:layout style}       /* listas largas: evita recalcular todo el layout */
+
+/* ================= micro-interacciones ================= */
+.card,.kpi-card,.mcard,.wc2{transition:transform var(--d-card) var(--ez),box-shadow var(--d-card) var(--ez),border-color var(--d-card) ease}
+.card:hover,.kpi-card:hover,.mcard:hover{transform:translateY(-2px)}
+.wc2:hover{transform:translateY(-3px)}
+.btn,.chip,.fchip,.seg-btn,.tab,.fpill{transition:all var(--d-chip) var(--ez);backface-visibility:hidden}
+.btn:hover,.chip:hover,.fchip:hover{transform:translateY(-1px)}
+.btn:active,.chip:active,.fchip:active,.fpill:active{transform:scale(.97)}
+/* filas de lista: desplazamiento lateral, no lift — la barra de color vive a la izquierda */
+.event-item,.dnrow,.rowlink,tbody tr{transition:background var(--d-fast) ease,transform var(--d-fast) var(--ez)}
+.event-item:hover,.dnrow:hover,.rowlink:hover{transform:translateX(2px)}
+.chev{transition:transform var(--d-chip) var(--ez)}
+.open>.chev{transform:rotate(90deg)}
+/* celda de heatmap que se eleva del grid sin reflow */
+.dcell{transition:transform var(--d-fast) var(--ez)}
+.dcell:hover{transform:scale(1.2);z-index:3;position:relative}
+
+/* ================= KPI ================= */
+.kpi-bump{animation:bumpKpi .45s var(--ez) both}
+.kpi-bump:nth-child(2){animation-delay:55ms}.kpi-bump:nth-child(3){animation-delay:110ms}
+.kpi-bump:nth-child(4){animation-delay:165ms}.kpi-bump:nth-child(5){animation-delay:220ms}
+.kpi-bump:nth-child(6){animation-delay:275ms}
+
+/* ================= barras ================= */
+/* Preferido: scaleX (compositor). NUNCA animar width en listas largas. */
+.bar{position:relative;height:8px;border-radius:5px;background:var(--c-surface-2,#F1F4F9);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:5px;transform-origin:left;transform:scaleX(var(--s,0));
+  animation:barGrow var(--d-bar) var(--ez) forwards}
+/* el sheen va en el TRACK, no en el relleno: si va dentro, la escala lo deforma */
+.bar::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);
+  transform:translateX(-100%);animation:sheen 1.5s var(--ez) .9s 1}
+/* variante width para barras cortas dentro de tabla (una sola fila, sin coste de reflow) */
+.pbar i,.pdbar-fill,.bench-je,.fill{transition:width .7s var(--ez)}
+
+/* ================= dots de semáforo con pulso por severidad =================
+   Duración INVERSA a la severidad: lo crítico late más rápido y más amplio.
+   Estados neutros o sin dato NO pulsan. */
+.dot{position:relative;display:inline-block;width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.dot.live::after,.dot.g::after,.dot.y::after,.dot.o::after,.dot.r::after{
+  content:'';position:absolute;inset:0;border-radius:50%;background:inherit;
+  animation:dotPulse 2.3s cubic-bezier(.4,0,.6,1) infinite;will-change:transform,opacity}
+@keyframes dotPulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(2.5);opacity:0}}
+.dot.g::after{animation-duration:2.8s}
+.dot.y::after{animation-duration:2.3s}
+.dot.o::after{animation-duration:2.0s}
+.dot.r::after{animation-duration:1.6s;--sc:3}
+.dot.r::after{animation-name:dotPulseHard}
+@keyframes dotPulseHard{0%{transform:scale(1);opacity:.5}100%{transform:scale(3);opacity:0}}
+.dot.neutral::after,.dot.nd::after{content:none}
+/* indicador LIVE único de la página */
+.pulse-live{width:8px;height:8px;border-radius:50%;background:#7DCFB6;animation:pulseLive 2.2s infinite}
+
+/* ================= estados de carga y vacío ================= */
+.skl{height:10px;border-radius:6px;background:linear-gradient(90deg,#EEF2F7 25%,#F8FAFC 50%,#EEF2F7 75%);
+  background-size:400px 100%;animation:shimmer 1.3s infinite}
+.spin{animation:spin .9s linear infinite}
+.ldpulse{animation:softPulse 1.1s ease-in-out infinite}
+
+/* ================= capas GPU para contenedores pesados ================= */
+.map-container,.heavy-layer{will-change:transform;transform:translateZ(0);contain:layout paint;isolation:isolate}
+/* el transform del hover crea contexto de composición y desenfoca los tiles del mapa */
+.card:has(.leaflet-container):hover{transform:none}
+
+/* ================= accesibilidad =================
+   Se apaga el movimiento pero los valores finales quedan visibles: nunca una barra en cero. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .bar i{transform:scaleX(var(--s,1))!important}
+  .pbar i,.pdbar-fill,.bench-je,.fill{transition:none!important}
+  [data-pane].active,.tabpanel.active,.page.on,.stagger>*{opacity:1!important;transform:none!important}
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v5 — capa de movimiento. Mismo principio: sólo transform y opacity.
+   Lo nuevo es que el movimiento EXPLICA algo — de dónde vino un número, qué
+   cambió al filtrar, qué está vivo. Movimiento que no explica nada, se quita.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes riseIn{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes slideL{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@keyframes slideR{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+@keyframes popScale{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+@keyframes flipNum{0%{transform:translateY(0);opacity:1}45%{transform:translateY(-60%);opacity:0}
+                   55%{transform:translateY(55%);opacity:0}100%{transform:none;opacity:1}}
+@keyframes glowRing{0%{box-shadow:0 0 0 0 rgba(30,107,122,.28)}100%{box-shadow:0 0 0 12px rgba(30,107,122,0)}}
+
+/* entrada de la vista: las cards suben escalonadas, no aparecen todas a la vez */
+.rise>*{animation:riseIn .5s var(--ez) both;animation-delay:calc(var(--i,0) * 62ms)}
+.rise-fast>*{animation-delay:calc(var(--i,0) * 38ms)}
+
+/* pestañas: la vista entrante se desliza en el sentido de la navegación.
+   .from-right / .from-left las pone wireTabs comparando el índice anterior. */
+[data-pane].active.from-right{animation:slideL .34s var(--ez) both}
+[data-pane].active.from-left{animation:slideR .34s var(--ez) both}
+
+/* el número que cambia al filtrar hace un flip corto: avisa que se recalculó.
+   Se aplica con re-trigger (quitar y volver a poner la clase), no en cada render. */
+.k-val.flip>span,.kpi-value.flip{animation:flipNum .42s var(--ez) both}
+
+/* popover de filtro: entra con muelle corto, sale seco. Entrar puede ser
+   expresivo; salir nunca — el usuario ya decidió. */
+.fmenu-pop{will-change:transform,opacity}
+.fmenu-pop.show{animation:popScale .2s var(--ez) both}
+.fopt{will-change:transform}
+
+/* fila de tabla que entra tras filtrar */
+tbody.rise>tr{animation:riseIn .34s var(--ez) both;animation-delay:calc(var(--i,0) * 22ms)}
+
+/* foco de teclado visible y con el color del sistema, no el azul del navegador */
+.fmenu-btn:focus-visible,.fopt:focus-visible,.nv:focus-visible,.tab:focus-visible,.chip:focus-visible{
+  outline:none;animation:glowRing .5s var(--ez) forwards;border-radius:10px}
+
+/* card destacada tras un drill: parpadeo de ubicación, una sola vez */
+.locate{animation:glowRing .9s var(--ez) 2}
+
+/* Accesibilidad — se respeta sin excepción. Sin esto el sistema es bonito y hostil. */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .gcard:hover{transform:none}
+  .gcard::after{display:none}
+}

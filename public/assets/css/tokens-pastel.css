@@ -1,0 +1,57 @@
+/* OMMA tokens — Sistema A · Panel SaaS con paleta pastel corporativa (origen: DCC_Dashboard_v70)
+   Usar en dashboards interactivos. Tipografía: Inter. */
+:root{
+  --c-bg:#F7F8FA; --c-surface:#FFFFFF; --c-surface-2:#F1F4F9;
+  --c-border:#E5E9F0; --c-grid:#EEF2F6;
+  --c-text:#1B2538; --c-text-soft:#4F5B6E; --c-text-mute:#8893A6; --c-text-faint:#B6BDC0;
+
+  /* primary teal corporativo */
+  --c-primary:#1E6B7A; --c-primary-soft:#B8DDE3; --c-primary-bg:#ECF4F6;
+
+  /* acentos pastel */
+  --c-mint:#7DCFB6;     --c-mint-soft:#D4EFE6;
+  --c-coral:#F08080;    --c-coral-soft:#FBD9D9;
+  --c-amber:#F4B860;    --c-amber-soft:#FCE8C8;
+  --c-lavender:#9D8FCB; --c-lavender-soft:#E2DCF1;
+  --c-sky:#6BAED6;      --c-sky-soft:#D0E5F2;
+
+  /* semánticos */
+  --c-success:#4CAF7D; --c-warning:#E6A23C; --c-danger:#D9534F;
+
+  /* sombras suaves (nunca duras) */
+  --shadow-sm:0 1px 2px rgba(27,37,56,.04),0 1px 3px rgba(27,37,56,.06);
+  --shadow-md:0 4px 12px rgba(27,37,56,.06),0 2px 4px rgba(27,37,56,.04);
+  --shadow-lg:0 10px 30px rgba(27,37,56,.08),0 4px 12px rgba(27,37,56,.06);
+
+  --radius-sm:8px; --radius:14px; --radius-lg:20px;
+  --sb-w:260px; /* sidebar dashboards 5+ vistas */
+}
+body{font-family:'Inter',-apple-system,'Segoe UI',sans-serif;background:var(--c-bg);color:var(--c-text);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+/* colores fijos por carrier — usar en TODOS los reportes */
+/* MAXCARGO #1E6B7A · JE #F4B860 · MASIV #9D8FCB · MEDRANOS #F08080 · RENTROL #7DCFB6 */
+
+/* topbar sticky */
+.topbar{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:14px;padding:12px 22px}
+.topbar h1{font-size:22px;font-weight:800;letter-spacing:-.4px}
+.topbar .ctx{margin-left:auto;display:flex;gap:6px;align-items:center}
+
+/* sidebar nav (DCC) */
+.sidebar{width:var(--sb-w);background:#fff;border-right:1px solid var(--c-border);padding:18px 12px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:10px;color:var(--c-text-soft);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s ease}
+.nav-item svg{width:17px;height:17px;flex:0 0 17px}
+.nav-item:hover{background:var(--c-surface-2);color:var(--c-primary)}
+.nav-item.active{background:var(--c-primary-bg);color:var(--c-primary)}
+.nav-item .badge{margin-left:auto;font-size:10px;background:var(--c-primary-bg);color:var(--c-primary);padding:1px 7px;border-radius:10px;font-weight:700}
+.nav-item.active .badge{background:var(--c-primary);color:#fff}
+
+/* card base + título */
+.card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);transition:box-shadow .18s,transform .18s}
+.card:hover{box-shadow:var(--shadow-md)}
+.card-title{font-size:15px;font-weight:700;letter-spacing:-.2px}
+.card-sub{font-size:12px;color:var(--c-text-mute);margin-top:2px}
+.legend{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--c-text-soft);cursor:pointer;padding:3px 6px;border-radius:7px}
+.legend-item:hover{background:var(--c-surface-2)}
+.legend-dot{width:9px;height:9px;border-radius:3px}

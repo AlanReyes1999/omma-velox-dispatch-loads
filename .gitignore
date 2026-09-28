@@ -1,0 +1,11 @@
+node_modules/
+.netlify/
+.DS_Store
+*.log
+# exports crudos de loads: traen nombres de drivers, no se suben a un repo público
+*.xls
+*.xlsx
+*.csv
+!tests/fixtures/*.xls
+/data/
+/private/
