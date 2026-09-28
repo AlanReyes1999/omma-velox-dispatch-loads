@@ -676,103 +676,87 @@
   }
 
   /* ============================== drivers and turn rate ==============================
-     A driver works one shift a day (drivers.shiftH hours, 12 by default) and a load keeps a driver busy
-     for its mine's round trip (the cycle per truck). Every driver can take every trip: the longest trips
-     are covered first, as many whole trips per driver as fit in a shift, and the time left in those
-     shifts takes shorter trips before a new driver is added. A load belongs to the shift in which its
-     trip is half done. Turn rate = loads per driver per day (a driver works one shift a day). */
-  function shiftHours(cfg) {
-    const v = +(((cfg && cfg.drivers) || {}).shiftH);
-    return v >= 4 && v <= 16 ? v : 12;
+     A driver works one shift a day: 12 h that can stretch to 14 h (drivers.shiftH / drivers.maxH).
+     A load keeps a driver for its full load time: assigned → delivered at its mine (the same time the
+     queue uses, from the OMMA export or set by hand in Mines). Any driver can take any trip, so a shift
+     needs its loads' driver-hours ÷ the hours a driver can work, rounded up once for the whole shift.
+     A load counts in the shift where its trip is half done. Turn rate = loads per driver per day. */
+  function driverHours(cfg) {
+    const d = (cfg && cfg.drivers) || {};
+    const shift = +d.shiftH >= 4 && +d.shiftH <= 16 ? +d.shiftH : 12;
+    let max = +d.maxH >= 4 && +d.maxH <= 16 ? +d.maxH : 14;
+    if (max < shift) max = shift;
+    return { shift, max };
   }
-  /* byMine: loads per mine in one shift · tripH: round trip per mine (h) · H: hours a driver works */
-  function packShift(byMine, tripH, H) {
-    const order = Object.keys(byMine).filter(m => byMine[m] > 0 && tripH[m] > 0)
-      .sort((a, b) => tripH[b] - tripH[a] || (a < b ? -1 : 1));
-    let bins = [];                                  // groups of drivers with the same time left
-    const drivers = {}, absorbed = {};
-    let total = 0;
-    order.forEach(m => {
-      const tau = tripH[m];
-      let rem = byMine[m];
-      drivers[m] = 0; absorbed[m] = 0;
-      bins.sort((a, b) => b.left - a.left);
-      const next = [];
-      bins.forEach(b => {
-        const per = Math.floor(b.left / tau + 1e-9);
-        if (rem <= 1e-9 || per < 1 || b.n <= 1e-12) { next.push(b); return; }
-        const take = Math.min(rem, b.n * per), used = take / per;
-        rem -= take; absorbed[m] += take;
-        if (b.n - used > 1e-9) next.push({ n: b.n - used, left: b.left });
-        next.push({ n: used, left: b.left - per * tau });
-      });
-      bins = next;
-      if (rem > 1e-9) {
-        const k = Math.max(1, Math.floor(H / tau + 1e-9));
-        const d = rem / k;
-        drivers[m] = d; total += d;
-        bins.push({ n: d, left: Math.max(0, H - k * tau) });
-      }
-    });
-    return { total, drivers, absorbed };
+  function segDriversPlan(sg) {
+    const v = sg && sg.drivers;
+    return v != null && v !== '' && isFinite(+v) && +v >= 0 ? +v : null;
   }
   /* opts.sands: the sands to count (the board's sand filter); all of them by default */
   function driverPlan(model, opts) {
     opts = opts || {};
     const cfg = model.cfg, tz = model.tz, P = model.params;
-    const H = shiftHours(cfg);
+    const hrs = driverHours(cfg), H = hrs.max;
     const sh0 = cfg.shiftStartHour == null ? 6 : +cfg.shiftStartHour;
     const want = opts.sands ? new Set(opts.sands) : null;
     const sands = cfg.sands.filter(s => P[s.id] && (!want || want.has(s.id)));
-    const mineOfS = {}, tripH = {}, tripSrc = {};
+    const mineOfS = {}, loadH = {}, loadSrc = {};
     sands.forEach(s => {
       mineOfS[s.id] = s.mine;
-      if (tripH[s.mine] == null) { tripH[s.mine] = Math.max(0.25, (+P[s.id].cycleMin || 60) / 60); tripSrc[s.mine] = P[s.id].cycleSrc; }
+      if (loadH[s.mine] == null) { loadH[s.mine] = Math.max(0.25, (+P[s.id].leadMin || 60) / 60); loadSrc[s.mine] = P[s.id].leadSrc; }
     });
-    const perShift = {};
-    Object.keys(tripH).forEach(m => { perShift[m] = Math.max(1, Math.floor(H / tripH[m] + 1e-9)); });
+    const tr = {};
+    Object.keys(loadH).forEach(m => { tr[m] = H / loadH[m]; });
     const loads = model.slots.filter(x => x.needed && mineOfS[x.s] != null);
+    const segs0 = cfg.segments || [];
+    const segAt = t => {
+      if (!model.sc || !model.tb) return -1;
+      const pos = Math.max(0, Math.min(model.N - 1e-6, model.sc.X(t)));
+      const i = model.tb.segOf[Math.floor(pos) + 1];
+      return i == null ? -1 : i;
+    };
 
-    /* shifts: day and night, each with the loads whose trip is half done in it */
+    /* shifts: day and night, with the loads whose trip is half done in each */
     const SH = {};
     loads.forEach(x => {
-      const m = mineOfS[x.s], tau = tripH[m];
+      const m = mineOfS[x.s], tau = loadH[m];
       const sh = shiftOf(x.ab + tau * HOUR / 2, tz, sh0);
-      const o = SH[sh.key] || (SH[sh.key] = { key: sh.key, day: sh.day, shift: sh.shift, start: sh.start, end: sh.start + 12 * HOUR, loads: {}, byMine: {}, total: 0, hours: 0 });
+      const o = SH[sh.key] || (SH[sh.key] = { key: sh.key, day: sh.day, shift: sh.shift, start: sh.start, end: sh.start + 12 * HOUR, loads: {}, total: 0, hours: 0 });
       o.loads[x.s] = (o.loads[x.s] || 0) + 1;
-      o.byMine[m] = (o.byMine[m] || 0) + 1;
       o.total++; o.hours += tau;
     });
     const shifts = Object.keys(SH).map(k => SH[k]).sort((a, b) => a.start - b.start);
     shifts.forEach(o => {
-      const pk = packShift(o.byMine, tripH, H);
-      o.raw = pk.total;
-      o.drivers = Math.ceil(pk.total - 1e-9);
-      o.absorbed = pk.absorbed;
+      o.need = o.hours / H;
+      o.drivers = Math.ceil(o.need - 1e-9);
       o.tr = o.drivers ? o.total / o.drivers : null;
-      o.util = o.drivers ? Math.min(1, o.hours / (o.drivers * H)) : null;
+      const si = segAt(o.start + 6 * HOUR);
+      o.plan = si >= 0 ? segDriversPlan(segs0[si]) : null;
     });
-    /* operating days (day shift + night shift) */
+    /* operating days: day shift + night shift */
     const DD = {};
     shifts.forEach(o => {
-      const d = DD[o.day] || (DD[o.day] = { day: o.day, D: null, N: null, drivers: 0, total: 0, hours: 0, loads: {}, absorbed: {} });
-      d[o.shift] = o; d.drivers += o.drivers; d.total += o.total; d.hours += o.hours;
+      const d = DD[o.day] || (DD[o.day] = { day: o.day, D: null, N: null, drivers: 0, need: 0, total: 0, hours: 0, loads: {}, plan: null });
+      d[o.shift] = o; d.drivers += o.drivers; d.need += o.need; d.total += o.total; d.hours += o.hours;
       Object.keys(o.loads).forEach(s => { d.loads[s] = (d.loads[s] || 0) + o.loads[s]; });
-      Object.keys(o.absorbed).forEach(m => { d.absorbed[m] = (d.absorbed[m] || 0) + o.absorbed[m]; });
     });
     const days = Object.keys(DD).sort().map(k => DD[k]);
-    days.forEach(d => { d.tr = d.drivers ? d.total / d.drivers : null; d.util = d.drivers ? Math.min(1, d.hours / (d.drivers * H)) : null; });
+    days.forEach(d => {
+      d.tr = d.drivers ? d.total / d.drivers : null;
+      const pl = ['D', 'N'].map(k => d[k] ? d[k].plan : null).filter(v => v != null);
+      d.plan = pl.length ? pl.reduce((a, b) => a + b, 0) : null;
+    });
 
-    /* hour by hour: drivers on a trip (time-weighted) and drivers on shift */
-    const hourly = { t: [], busy: [], onShift: [], starts: [] };
+    /* hour by hour: drivers on a trip (time-weighted) and the loads that leave */
+    const hourly = { t: [], busy: [], shiftDrivers: [], starts: [] };
     if (loads.length) {
       const t0 = Math.floor(Math.min.apply(null, loads.map(x => x.ab)) / HOUR) * HOUR;
-      const t1 = Math.ceil(Math.max.apply(null, loads.map(x => x.ab + tripH[mineOfS[x.s]] * HOUR)) / HOUR) * HOUR;
+      const t1 = Math.ceil(Math.max.apply(null, loads.map(x => x.ab + loadH[mineOfS[x.s]] * HOUR)) / HOUR) * HOUR;
       const n = Math.max(1, Math.round((t1 - t0) / HOUR));
       const busy = new Float64Array(n), starts = [];
       for (let i = 0; i < n; i++) starts.push({});
       loads.forEach(x => {
-        const a = x.ab, b = x.ab + tripH[mineOfS[x.s]] * HOUR;
+        const a = x.ab, b = x.ab + loadH[mineOfS[x.s]] * HOUR;
         const i0 = Math.max(0, Math.floor((a - t0) / HOUR)), i1 = Math.min(n - 1, Math.floor((b - t0 - 1) / HOUR));
         for (let i = i0; i <= i1; i++) {
           const hs = t0 + i * HOUR;
@@ -783,33 +767,34 @@
       });
       for (let i = 0; i < n; i++) {
         const t = t0 + i * HOUR, sh = shiftOf(t + 30 * MIN, tz, sh0);
-        hourly.t.push(t); hourly.busy.push(busy[i]); hourly.onShift.push(SH[sh.key] ? SH[sh.key].drivers : 0); hourly.starts.push(starts[i]);
+        hourly.t.push(t); hourly.busy.push(busy[i]); hourly.shiftDrivers.push(SH[sh.key] ? SH[sh.key].drivers : 0); hourly.starts.push(starts[i]);
       }
     }
 
-    /* per design segment, at its pace: what each stage takes and the drivers that hold that pace */
-    const segs = (model.segPlans || []).map(sp => {
-      const perStage = {}, byMine = {};
+    /* per design segment, at its pace: what each stage takes, the drivers that hold that pace
+       and, when the design has a driver plan, the pace that plan holds */
+    const segs = (model.segPlans || []).map((sp, i) => {
+      const perStage = {};
       let lps = 0, dh = 0;
       sands.forEach(s => {
         const q = sp.per[s.id];
         if (!q || !(q.lbs > 0) || !(P[s.id].payload > 0)) return;
         const L = q.lbs / P[s.id].payload;
-        perStage[s.id] = L; lps += L; dh += L * tripH[s.mine];
-        byMine[s.mine] = (byMine[s.mine] || 0) + L * sp.pace / 2;          // one 12 h shift at the design pace
+        perStage[s.id] = L; lps += L; dh += L * loadH[s.mine];
       });
-      const pk = packShift(byMine, tripH, H);
-      const onShift = Math.ceil(pk.total - 1e-9), perDay = 2 * onShift, loadsDay = lps * sp.pace;
+      const need = dh * sp.pace / 2 / H;                  // drivers on each 12 h shift at the design pace
+      const onShift = Math.ceil(need - 1e-9), perDay = 2 * onShift, loadsDay = lps * sp.pace;
+      const plan = segDriversPlan(segs0[i]);
       return { from: sp.from, to: sp.to, pace: sp.pace, stageMin: sp.pace > 0 ? 1440 / sp.pace : null, perStage,
         loadsPerStage: lps, driverHoursPerStage: dh, loadsPerDay: loadsDay, loadsPerHour: loadsDay / 24,
-        driving: dh * sp.pace / 24, onShift, perDay, tr: perDay ? loadsDay / perDay : null,
-        util: onShift ? Math.min(1, (dh * sp.pace / 2) / (onShift * H)) : null };
+        driving: dh * sp.pace / 24, need, onShift, perDay, tr: perDay ? loadsDay / perDay : null,
+        plan, gap: plan != null ? plan - onShift : null, planHolds: plan != null && dh > 0 ? plan * 2 * H / dh : null };
     });
 
-    const tot = shifts.reduce((p, o) => { p.loads += o.total; p.drivers += o.drivers; return p; }, { loads: 0, drivers: 0 });
+    const tot = shifts.reduce((q, o) => { q.loads += o.total; q.drivers += o.drivers; return q; }, { loads: 0, drivers: 0 });
     const todayKey = shiftOf(model.now, tz, sh0).day;
     return {
-      H, tripH, tripSrc, perShift, mineOf: mineOfS, shifts, days, hourly, segs,
+      H, shiftH: hrs.shift, loadH, loadSrc, tr, mineOf: mineOfS, shifts, days, hourly, segs,
       total: { loads: tot.loads, driverDays: tot.drivers, tr: tot.drivers ? tot.loads / tot.drivers : null },
       todayKey, today: days.find(d => d.day === todayKey) || null,
       peak: days.reduce((b, d) => (!b || d.drivers > b.drivers ? d : b), null)
@@ -822,6 +807,6 @@
     normText, normProduct, normMine, parseDuration,
     mean, median, summary, computeStats, resolveParams,
     stageTable, posOf, schedule, build, cumulativeSeries, fmtDur, compactRanges,
-    shiftHours, packShift, driverPlan
+    driverHours, driverPlan
   };
 });

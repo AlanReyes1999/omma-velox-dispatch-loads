@@ -200,7 +200,7 @@ test('reducer: revision-3 update corrects the POs and keeps every check mark', (
   assert.equal(r.state.seedRev, S.REV);
   const last = r.state.log[r.state.log.length - 1];
   assert.equal(last.patch, 2);
-  assert.equal(last.txt, 'POs corrected · 20/40 PO-24918 · 40/70 SPA00021227');
+  assert.equal(last.txt, S.patchNote(3));
   /* a PO that dispatch already typed in Plan stays as they left it */
   const typed = S.clone(live); typed.config.po['2040'] = 'PO-7777';
   r = R.apply(typed, [Object.assign({}, op, { id: 'q2' })]);
@@ -208,7 +208,7 @@ test('reducer: revision-3 update corrects the POs and keeps every check mark', (
   assert.equal(r.state.config.po['4070'], 'SPA00021227');
   /* the default design and a new shared state carry the corrected POs */
   assert.deepEqual(S.DEFAULT_CONFIG.po, { '100M': 'SPA00021226', '4070': 'SPA00021227', '2040': 'PO-24918' });
-  assert.deepEqual(S.patchFrom(4), []);
+  assert.deepEqual(S.patchFrom(S.REV), []);
 });
 
 test('reducer: hostile input is refused', () => {
@@ -241,4 +241,36 @@ test('config: driver hours per shift within 4–16', () => {
   assert.equal(R.validConfig(Object.assign(S.clone(c), { drivers: {} })), true);
   assert.equal(R.validConfig(Object.assign(S.clone(c), { drivers: { shiftH: 40 } })), false);
   assert.equal(R.validConfig(Object.assign(S.clone(c), { drivers: 'x' })), false);
+});
+
+test('reducer: revision-4 update adds the client driver plan only where stages 31–105 still are', () => {
+  const live = S.initialState();
+  live.seedRev = 4;
+  delete live.config.segments[1].drivers; delete live.config.drivers;
+  live.log = [{ t: '2026-09-28T06:00:00Z', type: 'reseed', n: 37 }, { t: '2026-09-28T07:00:00Z', type: 'asg', slot: '2040-031' }];
+  const op = { id: 'd1', type: 'reseed', rev: S.REV, auto: true, from: 4, patch: S.patchFrom(4), patchTxt: S.patchNote(4), config: S.clone(S.DEFAULT_CONFIG), asg: S.baselineAsg(), txt: 'x' };
+  let r = R.apply(live, [op]);
+  assert.deepEqual(r.applied, ['d1']);
+  assert.equal(r.state.config.segments[1].drivers, 20);
+  assert.equal(r.state.config.segments[0].drivers, undefined);
+  assert.equal(Object.keys(r.state.asg).length, 37, 'check marks untouched');
+  /* a design edited so that segment 2 is no longer 31–105 keeps no plan */
+  const moved = S.clone(live); moved.config.segments[1].from = 41;
+  r = R.apply(moved, [Object.assign({}, op, { id: 'd2' })]);
+  assert.equal(r.state.config.segments[1].drivers, undefined);
+  assert.equal(r.state.seedRev, S.REV);
+  /* a plan dispatch already typed stays */
+  const typed = S.clone(live); typed.config.segments[1].drivers = 24;
+  r = R.apply(typed, [Object.assign({}, op, { id: 'd3' })]);
+  assert.equal(r.state.config.segments[1].drivers, 24);
+  assert.equal(R.applyPatch({ config: {}, meta: null }, { path: 'config.x', from: '', to: 1, when: 'bad' }), false);
+});
+
+test('config: planned drivers per segment and shift stretch are validated', () => {
+  const c = S.clone(S.DEFAULT_CONFIG);
+  assert.equal(R.validConfig(c), true);
+  const bad = S.clone(c); bad.segments[1].drivers = -3;
+  assert.equal(R.validConfig(bad), false);
+  const bad2 = S.clone(c); bad2.drivers = { shiftH: 12, maxH: 30 };
+  assert.equal(R.validConfig(bad2), false);
 });

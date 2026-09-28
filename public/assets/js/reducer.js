@@ -58,13 +58,14 @@
     if (!Array.isArray(c.sands) || !c.sands.length || c.sands.length > 12) return false;
     if (!c.sands.every(s => isObj(s) && typeof s.id === 'string' && ID_RE.test(s.id) && typeof s.label === 'string' && s.label.length <= 40 && mineIds.has(s.mine))) return false;
     if (!Array.isArray(c.segments) || !c.segments.length || c.segments.length > 60) return false;
-    if (!c.segments.every(g => isObj(g) && isNum(+g.from) && isNum(+g.to) && +g.pace > 0 && +g.pace <= 200 && (g.lbs == null || isObj(g.lbs)) && (g.trucks == null || isObj(g.trucks)))) return false;
+    if (!c.segments.every(g => isObj(g) && isNum(+g.from) && isNum(+g.to) && +g.pace > 0 && +g.pace <= 200 && (g.lbs == null || isObj(g.lbs)) && (g.trucks == null || isObj(g.trucks)) &&
+      (g.drivers == null || (isNum(+g.drivers) && +g.drivers >= 0 && +g.drivers <= 5000)))) return false;
     if (!Array.isArray(c.carriers) || !c.carriers.length || c.carriers.length > 12) return false;
     if (!c.carriers.every(x => isObj(x) && typeof x.id === 'string' && ID_RE.test(x.id) && typeof x.name === 'string' && x.name.length <= 40)) return false;
     if (!isObj(c.schedule) || !okStr(c.schedule.prefillStart, 20) || !okStr(c.schedule.prefillEnd, 20) || !okStr(c.schedule.fracStart, 20)) return false;
     if (c.po != null && (!isObj(c.po) || !Object.keys(c.po).every(k => okStr(c.po[k], 40)))) return false;
     if (c.finalCountsPct != null && !(+c.finalCountsPct >= 1 && +c.finalCountsPct <= 100)) return false;
-    if (c.drivers != null && (!isObj(c.drivers) || (c.drivers.shiftH != null && !(+c.drivers.shiftH >= 4 && +c.drivers.shiftH <= 16)))) return false;
+    if (c.drivers != null && (!isObj(c.drivers) || ['shiftH', 'maxH'].some(k => c.drivers[k] != null && !(+c.drivers[k] >= 4 && +c.drivers[k] <= 16)))) return false;
     return true;
   }
 
@@ -83,8 +84,22 @@
 
   /* One field of a seed patch: it only changes when it still holds the old value (`from`),
      so whatever dispatch already edited is left alone. */
+  function valueAt(roots, path) {
+    if (typeof path !== 'string' || !PATCH_RE.test(path)) return undefined;
+    const ks = path.split('.');
+    if (ks.some(k => BAD_KEY.test(k))) return undefined;
+    let o, i;
+    if (ks[0] === 'config') { o = roots.config; i = 1; } else { o = roots.meta; i = 2; }
+    for (; i < ks.length; i++) {
+      if (!o || typeof o !== 'object' || !Object.prototype.hasOwnProperty.call(o, ks[i])) return undefined;
+      o = o[ks[i]];
+    }
+    return o;
+  }
+  /* p.when: [{path, eq}] — the field only changes if those fields still hold those values */
   function applyPatch(roots, p) {
     if (!p || typeof p.path !== 'string' || !PATCH_RE.test(p.path)) return false;
+    if (p.when != null && (!Array.isArray(p.when) || !p.when.slice(0, 6).every(w => w && String(valueAt(roots, w.path)) === String(w.eq)))) return false;
     const ks = p.path.split('.');
     if (ks.some(k => BAD_KEY.test(k))) return false;
     let o, i;

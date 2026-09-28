@@ -39,8 +39,10 @@
     segments: [
       { from: 1, to: 30, pace: 19, lbs: { '100M': 10000, '4070': 0, '2040': 111000 }, trucks: {} },
       { from: 31, to: 105, pace: 19, lbs: { '100M': 90000, '4070': 169000, '2040': 20000 },
-        trucks: { '100M': 14, '4070': 26, '2040': 2 } }
+        trucks: { '100M': 14, '4070': 26, '2040': 2 }, drivers: 20 }   // client: 20 drivers per shift, 40 a day
     ],
+    // a driver works one 12 h shift a day that can stretch to 14 h
+    drivers: { shiftH: 12, maxH: 14 },
     prefill: { '100M': 6, '4070': 0, '2040': 30 },
     // from the design: 14 trucks → 28 loads/day and 26 trucks → 52 loads/day = 2 loads per truck.
     // 20/40 had no pace: it is computed from the actual IronHorse cycle.
@@ -92,7 +94,7 @@
      No carrier: the queue does not need it. The prefill check marks are stamped evenly across the prefill
      window (Sep 23 6:00 PM → Sep 28 3:00 AM, the last one at 11:30 PM on Sep 27); the 40/70 is stamped
      00:50 on Sep 28, after all of them, so it is #37. */
-  const REV = 4;
+  const REV = 5;
   const OLD_FILE = 'Excel extracto de loads OMMA (referencia inicial)';
   const SEED_FILE = 'OMMA loads extract (initial reference)';
   function baselineAsg() {
@@ -113,7 +115,10 @@
   /* Non-destructive update for a shared state already on an earlier revision: only fields that still hold
      that revision's value change, so anything dispatch edited in Plan stays. Check marks are not touched.
      · revision 2 → prefill from 6:00 PM, POs for every mine, final counts at 80%
-     · revision 3 → corrected POs: 20/40 is PO-24918 and 40/70 is SPA00021227 */
+     · revision 3 → corrected POs: 20/40 is PO-24918 and 40/70 is SPA00021227
+     · revision 4 → the client's driver plan for stages 31–105: 20 per shift (only if that segment is still 31–105) */
+  const DRIVER_PLAN = { path: 'config.segments.1.drivers', from: '', to: 20,
+    when: [{ path: 'config.segments.1.from', eq: 31 }, { path: 'config.segments.1.to', eq: 105 }] };
   function patchFrom(rev) {
     if (rev === 2) return [
       { path: 'config.schedule.prefillStart', from: '2026-09-23T00:00', to: '2026-09-23T18:00' },
@@ -122,18 +127,22 @@
       { path: 'config.po.4070', from: '', to: 'SPA00021227' },
       { path: 'config.po.2040', from: '', to: 'PO-24918' },
       { path: 'config.finalCountsPct', from: '', to: 80 },
-      { path: 'omma.meta.file', from: OLD_FILE, to: SEED_FILE }
+      { path: 'omma.meta.file', from: OLD_FILE, to: SEED_FILE },
+      DRIVER_PLAN
     ];
     if (rev === 3) return [
       { path: 'config.po.4070', from: 'PO-24918', to: 'SPA00021227' },
-      { path: 'config.po.2040', from: 'PO-1236', to: 'PO-24918' }
+      { path: 'config.po.2040', from: 'PO-1236', to: 'PO-24918' },
+      DRIVER_PLAN
     ];
+    if (rev === 4) return [DRIVER_PLAN];
     return [];
   }
   /* what the activity log and the notice say when that update is applied */
   function patchNote(rev) {
-    if (rev === 2) return 'prefill from Sep 23 6:00 PM · POs for every mine';
-    if (rev === 3) return 'POs corrected · 20/40 PO-24918 · 40/70 SPA00021227';
+    if (rev === 2) return 'prefill from Sep 23 6:00 PM · POs for every mine · driver plan';
+    if (rev === 3) return 'POs corrected · 20/40 PO-24918 · 40/70 SPA00021227 · driver plan';
+    if (rev === 4) return 'driver plan for stages 31–105: 20 per shift';
     return '';
   }
 

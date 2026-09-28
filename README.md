@@ -75,7 +75,7 @@ Global filters (sand and carrier) and the unit (loads, lbs or tons) apply to eve
 - **PO**: the one set in Plan; if empty, the one from the latest OMMA export for that sand.
 - **Calendar**: with no reports it uses the frac start and the design pace; from the first stage report on it re-anchors to the actual stage.
 - **Trucks required** = loads/day ÷ loads per truck per day (2 for Iron Oak, from the plan; 20/40 is estimated with the IronHorse cycle).
-- **Drivers and turn rate**: a driver works one shift a day (12 h, editable in Plan) and a load keeps a driver for its mine's round trip (the cycle per truck from the OMMA export). Any driver can take any trip: long trips are covered first, as many whole trips per driver as fit in a shift, and the time left in those shifts takes shorter trips before another driver is added. A load counts in the shift where its trip is half done. Drivers per day = day shift + night shift; turn rate = loads per driver per day. By hour, the chart compares drivers on a trip with drivers on shift. By stage, each design segment shows loads and driver-hours per stage and the drivers that hold its pace.
+- **Drivers and turn rate**: a driver works one 12 h shift a day that can stretch to 14 h (both editable in Plan), and a load keeps a driver for its full load time, assigned → delivered at its mine (the same time the queue uses). Any driver can take any trip, so a shift needs its loads' driver-hours ÷ 14 h, rounded up. A load counts in the shift where it is half done. Drivers per day = day shift + night shift; turn rate = loads per driver per day. By hour: drivers on a load. By stage: loads and driver-hours per stage, the drivers that hold each segment's pace and, with a driver plan per segment (the client's 20 per shift for stages 31–105), the gap and the pace that plan holds.
 
 ## Starting design assumptions
 
@@ -101,7 +101,7 @@ All of them change in **Plan → Well design** and apply to all dispatch:
 
 ```bash
 npm install
-npm test            # engine, parser, reducer and function (42 tests)
+npm test            # engine, parser, reducer and function (43 tests)
 npx netlify dev     # app + function at http://localhost:8888
 ```
 
