@@ -57,7 +57,8 @@ test('GET vacío, init, asignaciones y caché purgado', async () => {
 test('escrituras concurrentes: ninguna se pierde', async () => {
   const store = memStore();
   const purge = async () => {};
-  await handle(post([{ id: 'i', type: 'init', state: Seed.initialState() }]), store, purge);
+  const init = Seed.initialState(); init.asg = {};
+  await handle(post([{ id: 'i', type: 'init', state: init }]), store, purge);
   const ids = Array.from({ length: 12 }, (_, i) => '2040-' + String(i + 1).padStart(3, '0'));
   await Promise.all(ids.map((slot, i) => handle(post([{ id: 'c' + i, type: 'asg', slot, c: i % 2 ? 'C2' : 'OMMA' }]), store, purge)));
   const b = await (await handle(get(), store, purge)).json();

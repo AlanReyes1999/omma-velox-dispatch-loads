@@ -49,14 +49,16 @@
   const GHOST = '#E3E8EF';
 
   /* ============================== estado de UI ============================== */
-  const LS_UI = 'ovd.ui.v1';
+  const LS_UI = 'ovd.ui.v2';
   const saved = (() => { try { return JSON.parse(localStorage.getItem(LS_UI) || '{}'); } catch (e) { return {}; } })();
+  /* carrier '' = sin carrier: despacho palomea sin capturarlo; se puede poner después en la fila */
   const ui = {
-    view: 'centro', unit: saved.unit || 'loads', carrier: saved.carrier || 'OMMA', basis: saved.basis || 'est',
-    asStatus: 'pend', asQuery: '', asHour: null, asDay: null, asLimit: 80, gapRange: saved.gapRange || '48',
-    segPick: null, draft: null, dirty: false, lastLogKey: null, pendingList: false, upload: null
+    view: 'centro', unit: saved.unit || 'loads', carrier: '', basis: saved.basis || 'asg',
+    asStatus: 'all', asQuery: '', gapRange: saved.gapRange || '48', sbMode: saved.sbMode || 'general',
+    segPick: null, draft: null, dirty: false, lastLogKey: null, pendingList: false, upload: null,
+    flash: null, bump: null
   };
-  function saveUI() { try { localStorage.setItem(LS_UI, JSON.stringify({ unit: ui.unit, carrier: ui.carrier, basis: ui.basis, gapRange: ui.gapRange })); } catch (e) {} }
+  function saveUI() { try { localStorage.setItem(LS_UI, JSON.stringify({ unit: ui.unit, basis: ui.basis, gapRange: ui.gapRange, sbMode: ui.sbMode })); } catch (e) {} }
 
   let S = null;   // estado compartido
   let M = null;   // modelo calculado
@@ -124,13 +126,13 @@
       rows: M.slots,
       dims: {
         sand: Object.assign(r => sandLabel(r.s), { label: 'Arena' }),
-        carrier: Object.assign(r => r.carrier ? carrierName(r.carrier) : 'Sin asignar', { label: 'Carrier' })
+        carrier: Object.assign(r => r.asg ? (r.carrier ? carrierName(r.carrier) : 'Sin carrier') : 'Sin asignar', { label: 'Carrier' })
       },
       measures: { loads: rs => rs.length, lbs: rs => rs.reduce((p, r) => p + r.w, 0) }
     });
   }
   const sandOn = s => inSel(state.sand, sandLabel(s));
-  const carrierOn = c => inSel(state.carrier, c ? carrierName(c) : 'Sin asignar');
+  const carrierOn = c => inSel(state.carrier, c ? carrierName(c) : 'Sin carrier');
   const carrierFilterActive = () => state.carrier !== 'all' && state.carrier && state.carrier.size;
   function selSands() { return S.config.sands.map(s => s.id).filter(sandOn); }
 
@@ -253,27 +255,25 @@
     function close() { m.hidden = true; document.removeEventListener('keydown', onKey); m.removeEventListener('click', onBg); }
     return close;
   }
-  function withMe(cb) {
-    if (Store.me()) return cb();
-    modal('¿Quién está despachando?',
-      '<p>Tus iniciales quedan en cada load que palomees, para que el resto del equipo sepa quién lo asignó.</p><input type="text" id="meIn" maxlength="12" placeholder="Ej. AR" autocomplete="off">',
-      [{ label: 'Cancelar', cls: 'ghost' },
-       { label: 'Continuar', cls: 'primary', fn: () => { const v = ($('#meIn').value || '').trim(); if (!v) return false; Store.setMe(v.toUpperCase()); cb(); } }]);
-  }
-  function assign(slot, c) {
-    withMe(() => {
-      c = c || ui.carrier;
-      Store.dispatch({ type: 'asg', slot, c });
-      toast('Asignado <b>' + esc(slot) + '</b> a ' + esc(carrierName(c)), { label: 'Deshacer', fn: () => Store.dispatch({ type: 'unasg', slot }) });
-    });
+  /* un clic y listo: las iniciales son opcionales (se capturan en el indicador de sincronización) */
+  function withMe(cb) { return cb(); }
+  function slotById(id) { return M.slots.find(x => x.id === id) || null; }
+  function slotName(x) { return (x.seq ? '#' + x.seq + ' · ' : '') + esc(sandLabel(x.s)) + ' · ' + String(x.k).padStart(3, '0'); }
+  function assign(slot, c, fromEl) {
+    const x = slotById(slot);
+    c = c != null ? c : ui.carrier;
+    if (fromEl && x) flyGrain(fromEl, x.s);
+    ui.flash = slot; ui.bump = x ? { s: x.s, n: 1, lbs: x.w } : null;
+    Store.dispatch({ type: 'asg', slot, c });
+    toast('Asignado <b>' + (x ? slotName(x) : esc(slot)) + '</b>' + (x ? ' · +' + lbsTxt(x.w) + ' en locación' : ''), { label: 'Deshacer', fn: () => { ui.bump = x ? { s: x.s, n: -1, lbs: -x.w } : null; Store.dispatch({ type: 'unasg', slot }); } });
   }
   function unassign(slot) {
     const prev = S.asg[slot];
     if (!prev) return;
-    withMe(() => {
-      Store.dispatch({ type: 'unasg', slot });
-      toast('Quitado <b>' + esc(slot) + '</b> (' + esc(carrierName(prev.c)) + ')', { label: 'Deshacer', fn: () => Store.dispatch({ type: 'asg', slot, c: prev.c, t: prev.t }) });
-    });
+    const x = slotById(slot);
+    ui.bump = x ? { s: x.s, n: -1, lbs: -x.w } : null;
+    Store.dispatch({ type: 'unasg', slot });
+    toast('Quitado <b>' + (x ? slotName(x) : esc(slot)) + '</b>', { label: 'Deshacer', fn: () => { ui.flash = slot; ui.bump = x ? { s: x.s, n: 1, lbs: x.w } : null; Store.dispatch({ type: 'asg', slot, c: prev.c, t: prev.t }); } });
   }
   function setCarrier(slot, c) {
     const prev = S.asg[slot];
@@ -347,9 +347,11 @@
     const cc = $('#chipsCarrier');
     cc.setAttribute('data-chips', 'carrier');
     const cntC = {};
-    rowsF('carrier').forEach(r => { if (r.carrier) cntC[r.carrier] = (cntC[r.carrier] || 0) + 1; });
+    let cntNone = 0;
+    rowsF('carrier').forEach(r => { if (!r.asg || !r.needed) return; if (r.carrier) cntC[r.carrier] = (cntC[r.carrier] || 0) + 1; else cntNone++; });
+    const cchip = (name, color, n) => '<button type="button" class="chip' + (state.carrier !== 'all' && setHas(state.carrier, name) ? ' active' : '') + '" data-v="' + esc(name) + '"><span class="cdot" style="background:' + color + '"></span>' + esc(name) + ' <span class="n">' + n + '</span></button>';
     cc.innerHTML = '<button type="button" class="chip all' + (state.carrier === 'all' ? ' active' : '') + '" data-v="all">Todos</button>' +
-      carriers().map(c => '<button type="button" class="chip' + (state.carrier !== 'all' && setHas(state.carrier, c.name) ? ' active' : '') + '" data-v="' + esc(c.name) + '"><span class="cdot" style="background:' + carrierColor(c.id) + '"></span>' + esc(c.name) + ' <span class="n">' + (cntC[c.id] || 0) + '</span></button>').join('');
+      cchip('Sin carrier', '#C8D0DA', cntNone) + carriers().map(c => cchip(c.name, carrierColor(c.id), cntC[c.id] || 0)).join('');
     $('#fnote').textContent = carrierFilterActive() ? 'Con filtro de carrier se ven sólo sus loads asignados' : '';
   }
   function chipClick(dim) {
@@ -439,8 +441,8 @@
       kpiCard({ label: 'Etapas cubiertas', value: fmt.int(Math.floor(cov.pos + 1e-9)), unit: '/ ' + M.N, icon: sv(IC.target, 16), accent: 'a-mint', i: 3, id: 'cov',
         badge: '<span class="gr neu">' + (ui.basis === 'asg' ? 'asignado' : ui.basis === 'est' ? 'entregado est.' : 'OMMA real') + '</span>',
         foot: '<span>arena para <b>' + nf2.format(cov.pos) + '</b> et.</span><span>limita <b>' + esc(cov.lim ? sandLabel(cov.lim) : '—') + '</b></span>' }),
-      next ? kpiCard({ label: 'Próximo a asignar', value: '<span class="mono">' + fTime(next.ab) + '</span>', unit: fDay(next.ab), icon: sv(IC.clock, 16), accent: next.status === 'late' ? 'a-danger' : 'a-amber', i: 4, id: 'next',
-        badge: stPill(next.status), foot: '<span>' + slotChip(next) + '</span><span>' + cd(next.ab) + '</span>' })
+      next ? kpiCard({ label: 'Próximo a asignar', value: '#' + next.seq, unit: esc(sandLabel(next.s)) + ' · ' + String(next.k).padStart(3, '0'), icon: sv(IC.clock, 16), accent: next.status === 'late' ? 'a-danger' : 'a-amber', i: 4, id: 'next',
+        badge: '<span class="st q' + qStatus(next) + '">' + QST[qStatus(next)] + '</span>', foot: '<span>' + esc(mineOf(next.mine).name) + ' · E' + next.stage + '</span><span>PO <b>' + esc(next.po || '—') + '</b></span>' })
         : kpiCard({ label: 'Próximo a asignar', value: 'Al día', icon: sv(IC.clock, 16), accent: 'a-success', i: 4, foot: '<span>No hay loads pendientes con el filtro actual</span>' })
     ];
     paintKpis('#ceKpis', cards);
@@ -454,8 +456,8 @@
     renderRouteLanes();
     /* 04 · gap tracker */
     renderGapChart();
-    /* 05 · carriers */
-    renderCarrierDonut();
+    /* 05 · arena asignada por tipo */
+    renderSandDonut();
     /* 06 · ledger de arenas */
     renderSandCards();
     /* 07 · bitácora */
@@ -544,25 +546,16 @@
     return '<div class="schead">Etapa ' + st.n + ' · ' + esc(st.segTx) + '</div>' + stageRows(st).slice(1).map(r => scRow(r[0], esc(r[1]))).join('');
   }
 
-  function carrierPick(host) {
-    const el = $(host);
-    if (!el) return;
-    el.innerHTML = '<span class="lb">Asignar a</span>' + carriers().map(c => {
-      const on = ui.carrier === c.id;
-      return '<button type="button" class="cbtn' + (on ? ' on' : '') + '" data-c="' + esc(c.id) + '" style="' + (on ? 'background:' + carrierColor(c.id) : '') + '"><i style="background:' + (on ? 'rgba(255,255,255,.85)' : carrierColor(c.id)) + '"></i>' + esc(c.name) + '</button>';
-    }).join('');
-  }
   function renderNextList(pend, overdue, inWin) {
-    carrierPick('#cePick');
-    const list = pend.slice().sort((a, b) => a.ab - b.ab).slice(0, 6);
+    const list = pend.slice().sort((a, b) => a.seq - b.seq).slice(0, 6);
     const b = $('#nextBadge');
-    b.textContent = overdue ? nL(overdue, 'vencido', 'vencidos') : inWin ? inWin + ' en ventana' : 'al día';
-    b.className = 'pbadge ' + (overdue ? 'bad' : inWin ? 'warn' : 'ok');
-    $('#nextList').innerHTML = list.length ? list.map(x =>
-      '<div class="nx ' + x.status + '"><div>' + slotChip(x) + '</div><div class="who"><div class="t1">' + stPill(x.status) + '<span class="mono">' + fTime(x.ab) + '</span> ' + cd(x.ab) + '</div>' +
-      '<div class="t2">' + (x.prefill ? 'Prefill · ' : 'Etapa ' + x.stage + ' · ') + esc(mineOf(x.mine).name) + ' · en locación ' + fDT(x.nb) + '</div></div>' +
+    b.textContent = overdue ? nL(overdue, 'vencido', 'vencidos') : list.length ? 'sigue #' + list[0].seq : 'completo';
+    b.className = 'pbadge ' + (overdue ? 'bad' : list.length ? '' : 'ok');
+    $('#nextList').innerHTML = list.length ? list.map((x, i) =>
+      '<div class="nx' + (i === 0 ? ' first' : '') + (x.status === 'late' ? ' late' : '') + '"><div class="nx-seq">#' + x.seq + '</div><div class="who"><div class="t1">' + slotChip(x) + (i === 0 ? '<span class="nxtag">Siguiente</span>' : '') + '</div>' +
+      '<div class="t2">' + esc(mineOf(x.mine).name) + ' · PO ' + esc(x.po || '—') + ' · E' + x.stage + (x.prefill ? ' · prefill' : '') + '</div></div>' +
       '<button type="button" class="go" data-assign="' + x.id + '">Asignar</button></div>').join('')
-      : '<div class="empty">No hay loads pendientes con el filtro actual.</div>';
+      : '<div class="empty">Todos los loads del diseño están asignados.</div>';
   }
   function renderRouteLanes() {
     const now = Date.now();
@@ -581,7 +574,7 @@
     const eta = M.slots.filter(x => x.status === 'eta' && sandOn(x.s) && carrierOn(x.carrier)).sort((a, b) => a.eta - b.eta);
     const nh = $('#pRoute .subnote');
     if (nh) nh.outerHTML = subNote({ kind: 'read', read: eta.length
-      ? '<b>' + eta.length + '</b> en camino; el próximo llega ~<b>' + fTime(eta[0].eta) + '</b> (' + esc(sandLabel(eta[0].s)) + ' · ' + esc(carrierName(eta[0].carrier)) + '). Cada punto va según su hora de asignación y el lead de la arenera.'
+      ? '<b>' + eta.length + '</b> en camino; el próximo llega ~<b>' + fTime(eta[0].eta) + '</b> (' + slotName(eta[0]) + (eta[0].carrier ? ' · ' + esc(carrierName(eta[0].carrier)) : '') + '). Cada punto va según su hora de asignación y el lead de la arenera.'
       : 'Sin loads en camino. Cada load asignado aparece aquí según su hora de asignación y el lead de la arenera.' });
   }
 
@@ -636,7 +629,7 @@
               const t0 = base.t[i], t1 = t0 + (all ? 2 : 1) * HOUR;
               const dueH = M.slots.filter(x => x.needed && filt(x) && x.ab >= t0 && x.ab < t1).length;
               out.push('Hora límite en este tramo: ' + dueH + ' loads');
-              out.push('clic abre la cola en esta hora →');
+              out.push('clic abre la cola →');
               return out;
             }
           })
@@ -644,7 +637,7 @@
         onClick: (e, els, c) => {
           const i = els && els.length ? els[0].index : null;
           if (i == null) return;
-          ui.asHour = base.t[i]; ui.asDay = null; ui.asStatus = 'all';
+          ui.asStatus = 'all';
           go('asignar');
         }
       }
@@ -662,52 +655,46 @@
       : 'La asignación va <b>' + (g > 0 ? uFmt(g) + ' ' + uLbl() + ' adelante' : 'justo en cadencia') + '</b>.';
   }
 
-  function renderCarrierDonut() {
-    const rows = rowsF('carrier').filter(r => r.asg);
-    const agg = carriers().map(c => {
-      const rs = rows.filter(r => r.carrier === c.id);
-      return { id: c.id, name: c.name, n: rs.length, lbs: rs.reduce((p, r) => p + r.w, 0) };
+  /* 05 · arena asignada por tipo: dona con centro = total asignado; clic filtra la arena */
+  function renderSandDonut() {
+    const rows = rowsF('sand').filter(r => r.needed && r.asg);
+    const agg = S.config.sands.map(sd => {
+      const rs = rows.filter(r => r.s === sd.id);
+      return { s: sd.id, name: sd.label, n: rs.length, lbs: rs.reduce((p, r) => p + r.w, 0), req: M.sands[sd.id].nNeeded, reqLbs: M.sands[sd.id].R };
     });
     const vals = agg.map(a => uVal(a.n, a.lbs));
     const tot = vals.reduce((p, v) => p + v, 0);
-    const cols = agg.map(a => (carrierFilterActive() && !setHas(state.carrier, a.name)) ? oA(carrierColor(a.id), .28) : carrierColor(a.id));
+    const cols = agg.map(a => sandOn(a.s) ? SAND_COLOR[a.s] : oA(SAND_COLOR[a.s], .28));
     const empty = tot === 0;
     $('#carBadge').textContent = nL(rows.length, 'load', 'loads');
-    chart('ce_car', {
+    chart('ce_sand', {
       type: 'doughnut',
       data: { labels: empty ? ['Sin asignaciones'] : agg.map(a => a.name), datasets: [{ data: empty ? [1] : vals, backgroundColor: empty ? ['#E5E9F0'] : cols, hoverOffset: empty ? 0 : 8 }] },
       options: {
         cutout: '66%',
         plugins: {
           crosshair: false,
-          doughnutCenter: { value: uFmt(tot), text: (ui.unit === 'loads' ? 'loads' : ui.unit === 'lbs' ? 'lb' : 't') + ' asignados' },
+          doughnutCenter: { value: uFmt(tot), text: uLbl() + ' asignados' },
           tooltip: empty ? { enabled: true, callbacks: { label: () => ' Sin asignaciones todavía', afterBody: () => [SEP, 'Palomea loads en Asignar'] } } : tt3({
-            title: it => it[0].label,
-            label: c => ' ' + uFmt(c.parsed) + ' ' + uLbl() + ' · ' + (tot ? nf1.format(c.parsed / tot * 100) : 0) + '%',
+            title: it => it[0].label + ' · ' + mineOf(S.config.sands[it[0].dataIndex].mine).name,
+            label: c => ' ' + uFmt(c.parsed) + ' ' + uLbl() + ' · ' + (tot ? nf1.format(c.parsed / tot * 100) : 0) + '% de lo asignado',
             rows: i => {
-              const a = agg[i];
-              const rs = rows.filter(r => r.carrier === a.id);
-              const byS = S.config.sands.map(s => sandLabel(s.id) + ': ' + rs.filter(r => r.s === s.id).length).join(' · ');
-              const last = rs.length ? Math.max.apply(null, rs.map(r => r.asgT)) : null;
-              return [byS, 'En camino: ' + rs.filter(r => r.status === 'eta').length + ' · entregados OMMA: ' + rs.filter(r => r.status === 'del').length,
-                last ? 'Última asignación: ' + fDT(last) : 'Sin asignaciones', 'clic filtra el tablero →'];
+              const a = agg[i], x = M.sands[a.s];
+              return ['Asignados: ' + a.n + ' de ' + a.req + ' loads (' + nf1.format(a.req ? a.n / a.req * 100 : 0) + '%)',
+                'Alcanza hasta la etapa E' + nf1.format(x.cov.asg) + ' · faltan ' + (a.req - a.n) + ' loads', 'clic filtra el tablero →'];
             }
           })
         },
-        onClick: empty ? () => go('asignar') : onMarkClick('carrier')
+        onClick: empty ? () => go('asignar') : onMarkClick('sand')
       }
     }, ch => attachHoverDim(ch));
-    $('#carList').innerHTML = agg.map((a, i) => '<div class="dnrow' + (carrierFilterActive() && !setHas(state.carrier, a.name) ? ' dim' : '') + (carrierFilterActive() && setHas(state.carrier, a.name) ? ' act' : '') + '" data-ci="' + i + '" data-cname="' + esc(a.name) + '">' +
-      '<span class="sq" style="background:' + carrierColor(a.id) + '"></span><span class="nm">' + esc(a.name) + '</span><b>' + uFmt(vals[i]) + ' <span class="pc">' + (tot ? nf1.format(vals[i] / tot * 100) : '0.0') + '%</span></b></div>').join('');
-    chartNote('ce_car', { read: carRead(agg, tot), kind: 'filter' });
+    $('#carList').innerHTML = agg.map((a, i) => '<div class="dnrow' + (sandOn(a.s) ? '' : ' dim') + (state.sand !== 'all' && sandOn(a.s) ? ' act' : '') + '" data-ci="' + i + '" data-sname="' + esc(a.name) + '">' +
+      '<span class="sq" style="background:' + SAND_COLOR[a.s] + '"></span><span class="nm">' + esc(a.name) + ' <small class="mut">' + a.n + '/' + a.req + '</small></span><b>' + uFmt(vals[i]) + ' <span class="pc">' + (a.req ? nf1.format(a.n / a.req * 100) : '0.0') + '%</span></b></div>').join('');
+    const lead = agg.slice().sort((a, b) => (b.req ? b.n / b.req : 0) - (a.req ? a.n / a.req : 0))[0];
+    const lag = agg.filter(a => a.req).slice().sort((a, b) => a.n / a.req - b.n / b.req)[0];
+    chartNote('ce_sand', { read: empty ? 'Aún no hay loads asignados; el reparto por arena aparece con la primera palomita.'
+      : 'Va más adelantada <b>' + esc(lead.name) + '</b> (' + nf1.format(lead.n / lead.req * 100) + '% de su diseño) y más atrás <b>' + esc(lag.name) + '</b> (' + nf1.format(lag.n / lag.req * 100) + '%).', kind: 'filter' });
   }
-  function carRead(agg, tot) {
-    if (!tot) return 'Aún no hay loads asignados; el reparto por carrier aparece con la primera palomita.';
-    const top = agg.slice().sort((a, b) => b.n - a.n)[0];
-    const o = agg.find(a => a.id === M.trackedId);
-    return '<b>' + esc(top.name) + '</b> lleva la mayor parte (' + nf1.format(uVal(top.n, top.lbs) / tot * 100) + '%).' + (o ? ' OMMA es el único carrier con entregas trackeadas.' : '');
-  }
-
   function renderSandCards() {
     const now = Date.now();
     const seg = M.segPlans[Math.max(0, M.well.segIdx)] || M.segPlans[0];
@@ -716,28 +703,26 @@
       const rows = x.slots.filter(r => r.needed);
       const asg = rows.filter(r => r.asg && carrierOn(r.carrier));
       const pend = rows.filter(r => !r.asg);
-      const due = rows.filter(r => r.ab <= now).length;
       const lbsA = asg.reduce((p, r) => p + r.w, 0);
       const q = seg && seg.per[s.id];
       const pct = rows.length ? asg.length / rows.length : 0;
-      const dueP = rows.length ? due / rows.length : 0;
       const nx = pend.slice().sort((a, b) => a.ab - b.ab)[0];
       const series = M.days.map(d => d.loads[s.id] || 0);
       const on = sandOn(s.id);
       return '<article class="gcard sand ' + SAND_ACC[s.id] + (on ? '' : ' dimcard') + '" data-sand="' + esc(s.label) + '" style="--i:' + i + (on ? '' : ';opacity:.5') + '">' +
         '<div class="top"><div class="nm"><i style="background:' + SAND_COLOR[s.id] + '"></i>' + esc(s.label) + '</div><div class="mn">' + esc(mineOf(s.mine).name) + '</div></div>' +
         '<div class="big">' + uTxt(asg.length, lbsA) + '<small>/ ' + uTxt(rows.length, x.R) + ' ' + uLbl() + '</small></div>' +
-        '<div class="trk" title="Marca: lo que ya debía estar asignado"><i style="--s:' + pct.toFixed(4) + '"></i><em style="left:' + (dueP * 100).toFixed(2) + '%"></em></div>' +
+        '<div class="trk" title="Avance de asignación de esta arena"><i style="--s:' + pct.toFixed(4) + '"></i></div>' +
         '<div class="rows">' +
-        '<span>Vencidos</span><b class="' + (pend.filter(r => r.status === 'late').length ? 'r' : 'g') + '">' + pend.filter(r => r.status === 'late').length + '</b>' +
-        '<span>En ventana · 24 h</span><b class="a">' + pend.filter(r => r.status === 'now').length + ' · ' + pend.filter(r => r.ab <= now + DAY).length + '</b>' +
+        '<span>Asignados · faltan</span><b>' + asg.length + ' · ' + pend.length + '</b>' +
+        '<span>Alcanza hasta</span><b class="' + (M.well.phase === 'frac' && x.cov.asg - M.well.xNow < (S.config.bufferStages || 2) ? 'r' : 'g') + '">E' + nf1.format(x.cov.asg) + '</b>' +
         '<span>Loads/día (tramo)</span><b>' + (q ? nf1.format(q.loadsPerDay) : '—') + '</b>' +
         '<span>Trucks req. · plan</span><b class="' + (q && q.trucksPlanned != null && q.trucksPlanned < q.trucksNeeded - 0.05 ? 'r' : '') + '">' + (q ? nf1.format(q.trucksNeeded) : '—') + ' · ' + (q && q.trucksPlanned != null ? q.trucksPlanned : 'sin plan') + '</b>' +
         '<span>Payload · lead</span><b>' + fmt.int(x.params.payload) + ' lb · ' + E.fmtDur(x.params.leadMin) + '</b>' +
         '</div>' +
         '<div class="k-spark">' + sparkbars(series, { highlight: M.days.findIndex(d => d.day === E.dayKey(now, tz())) }) + '</div>' +
-        '<div class="act"><button type="button" class="btn sm primary" data-assign-next="' + s.id + '"' + (nx ? '' : ' disabled') + '>Asignar siguiente' + (nx ? ' · ' + fWhen(nx.ab) : '') + '</button></div>' +
-        subNote({ read: nx ? 'Siguiente: <b>#' + String(nx.k).padStart(3, '0') + '</b> ' + cd(nx.ab) : 'Sin pendientes', kind: 'filter', act: 'clic filtra →' }) +
+        '<div class="act"><button type="button" class="btn sm primary" data-assign-next="' + s.id + '"' + (nx ? '' : ' disabled') + '>Asignar siguiente' + (nx ? ' · #' + nx.seq : '') + '</button></div>' +
+        subNote({ read: nx ? 'Sigue <b>#' + nx.seq + '</b> · ' + esc(s.label) + ' ' + String(nx.k).padStart(3, '0') + ' · E' + nx.stage : 'Arena completa', kind: 'filter', act: 'clic filtra →' }) +
         '</article>';
     }).join('');
     const box = $('#sandCards');
@@ -758,6 +743,7 @@
       case 'ommaClear': return 'Borró los loads OMMA';
       case 'resetAsg': return 'Reinició asignaciones (' + e.n + ')';
       case 'init': return 'Inició el estado compartido';
+      case 'reseed': return 'Cargó el punto de partida del pozo: <b>' + e.n + '</b> loads ya asignados' + (e.txt ? ' · ' + esc(e.txt) : '');
       default: return esc(e.type);
     }
   }
@@ -777,154 +763,286 @@
     ui.lastLogKey = key;
   }
 
-  /* ============================== ASIGNAR ============================== */
-  function asRows() {
-    const now = Date.now();
-    const q = ui.asQuery.trim().toLowerCase();
-    let R = rowsF();
-    R = R.filter(r => {
-      if (ui.asStatus === 'pend' && (!r.needed || r.asg)) return false;
-      if (ui.asStatus === 'late' && r.status !== 'late') return false;
-      if (ui.asStatus === 'asg' && !r.asg) return false;
-      if (ui.asHour != null) {
-        if (ui.asHour === 'late') { if (!(r.ab < now && !r.asg)) return false; }
-        else if (!(r.ab >= ui.asHour && r.ab < ui.asHour + HOUR)) return false;
-      }
-      if (ui.asDay && E.dayKey(r.ab, tz()) !== ui.asDay) return false;
-      if (q) {
-        const hay = [r.id, sandLabel(r.s) + ' ' + r.k, String(r.k).padStart(3, '0'), 'e' + r.stage, 'etapa ' + r.stage, r.carrier ? carrierName(r.carrier) : 'sin asignar', mineOf(r.mine).name, r.prefill ? 'prefill' : ''].join(' | ').toLowerCase();
-        if (!q.split(/\s+/).every(t => hay.includes(t))) return false;
-      }
-      return true;
+  /* ============================== ASIGNAR ==============================
+     La cola es una sola secuencia numerada en el orden en que hay que asignar (sin días ni horas).
+     Palomear = el load cuenta como arena en locación. La barra de arriba suma lo asignado, general
+     o por arena, y anima cada load que entra. La lista se parcha fila por fila: no se redibuja entera. */
+  const QST = { asg: 'Asignado', next: 'Programado', late: 'Vencido' };
+  function qStatus(r) { return r.asg ? 'asg' : r.status === 'late' ? 'late' : 'next'; }
+  function qRows() { return M.slots.filter(x => x.needed && sandOn(x.s) && (!carrierFilterActive() || (x.asg && carrierOn(x.carrier)))); }
+  function qNext() { return M.slots.find(x => x.needed && !x.asg && sandOn(x.s)) || null; }
+  function sandStats() {
+    return S.config.sands.filter(s => sandOn(s.id)).map(sd => {
+      const x = M.sands[sd.id];
+      const a = x.slots.filter(r => r.needed && r.asg);
+      return { s: sd.id, label: sd.label, mine: mineOf(sd.mine).name, n: a.length, lbs: a.reduce((p, r) => p + r.w, 0), req: x.nNeeded, reqLbs: x.R, cov: x.cov.asg };
     });
-    return R.sort((a, b) => a.ab - b.ab || a.s.localeCompare(b.s) || a.k - b.k);
   }
+  /* arena ya bombeada hasta la posición actual del pozo (para la marca de consumo) */
+  function consumedLbs(s) {
+    const pos = Math.max(0, Math.min(M.N, M.well.xNow || 0));
+    if (M.well.phase === 'pre' || M.well.phase === 'prefill' || pos <= 0) return 0;
+    const pre = M.tb.prefix[s], k = Math.floor(pos);
+    return k >= M.N ? pre[M.N] : pre[k] + (pre[k + 1] - pre[k]) * (pos - k);
+  }
+  function countTo(el, to, fmtFn) {
+    const from = el.dataset.v != null ? +el.dataset.v : to;
+    el.dataset.v = to;
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || from === to) { el.textContent = fmtFn(to); return; }
+    const t0 = performance.now(), dur = 650;
+    cancelAnimationFrame(el._raf);
+    const step = t => { const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3); el.textContent = fmtFn(from + (to - from) * e); if (p < 1) el._raf = requestAnimationFrame(step); };
+    el._raf = requestAnimationFrame(step);
+  }
+
   function renderAsignar() {
-    const now = Date.now();
     const k = M.kpi;
-    $('#asMeta').innerHTML = '<span class="pill">vencidos ' + k.overdue + '</span><span class="pill">en ventana ' + k.nowWindow + '</span><span class="pill">próx. 24 h ' + k.next24 + '</span>';
-    renderCadence();
-    carrierPick('#asPick');
-    const base = rowsF();
-    const cnt = {
-      pend: base.filter(r => r.needed && !r.asg).length, late: base.filter(r => r.status === 'late').length,
-      asg: base.filter(r => r.asg).length, all: base.length
-    };
-    const st = [['pend', 'Pendientes'], ['late', 'Vencidos'], ['asg', 'Asignados'], ['all', 'Todos']];
-    $('#asStatus').innerHTML = st.map(s => '<button type="button" class="chip' + (ui.asStatus === s[0] ? ' active' : '') + '" data-st="' + s[0] + '">' + s[1] + ' <span class="n">' + cnt[s[0]] + '</span></button>').join('');
-    const pills = [];
-    if (ui.asHour != null) pills.push('<button type="button" class="fpill" data-clear="hour">Hora límite: <b>' + (ui.asHour === 'late' ? 'vencidos' : fDT(ui.asHour) + '–' + fTime(ui.asHour + HOUR)) + '</b><i>×</i></button>');
-    if (ui.asDay) pills.push('<button type="button" class="fpill" data-clear="day">Día: <b>' + fDayKey(ui.asDay) + '</b><i>×</i></button>');
-    $('#asFilters').innerHTML = pills.join('');
-    if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#asList select')) { ui.pendingList = true; return; }
-    renderAsList();
+    $('#asMeta').innerHTML = '<span class="pill">' + nL(k.asgNeeded, 'asignado', 'asignados') + '</span><span class="pill">faltan ' + fmt.int(k.reqLoads - k.asgNeeded) + '</span><span class="pill">' + M.N + ' etapas</span>';
+    renderSandBar();
+    renderQueue();
+    watchSandBar();
   }
-  function renderAsList() {
-    ui.pendingList = false;
-    const now = Date.now();
-    const R = asRows();
-    const show = R.slice(0, ui.asLimit);
-    $('#asCount').textContent = show.length + ' de ' + R.length + ' loads';
-    const more = $('#asMore');
-    more.hidden = R.length <= ui.asLimit;
-    more.textContent = 'Mostrar ' + Math.min(120, R.length - ui.asLimit) + ' más';
-    if (!R.length) {
-      const why = carrierFilterActive() && (ui.asStatus === 'pend' || ui.asStatus === 'late') ? 'Hay un filtro de carrier activo y los pendientes todavía no tienen carrier.' : 'Nada con estos filtros.';
-      $('#asList').innerHTML = '<div class="empty">' + why + '</div>';
-      return;
+
+  /* ---------- barra de arena en locación ---------- */
+  function renderSandBar() {
+    const st = sandStats();
+    const tot = st.reduce((p, x) => p + x.lbs, 0), totN = st.reduce((p, x) => p + x.n, 0);
+    const req = st.reduce((p, x) => p + x.reqLbs, 0), reqN = st.reduce((p, x) => p + x.req, 0);
+    const pct = req ? tot / req : 0;
+    const val = uVal(totN, tot);
+    $('#sbUnit').textContent = uLbl();
+    countTo($('#sbTotal'), val, v => uFmt(v));
+    $('#sbOf').innerHTML = 'de <b>' + uTxt(reqN, req) + '</b> ' + uLbl() + ' · <b>' + nf1.format(pct * 100) + '%</b>' + (ui.unit === 'loads' ? ' · ' + lbsTxt(tot) : ' · ' + nL(totN, 'load', 'loads'));
+    $$('#sbMode button').forEach(b => b.classList.toggle('on', b.dataset.m === ui.sbMode));
+    const body = $('#sbBody');
+    const mode = ui.sbMode === 'arena' ? 'arena' : 'general';
+    if (body.dataset.mode !== mode || body.dataset.sands !== st.map(x => x.s).join(',')) {
+      body.dataset.mode = mode; body.dataset.sands = st.map(x => x.s).join(',');
+      body.innerHTML = mode === 'general'
+        ? '<div class="sbg"><div class="sbg-track">' + st.map(x => '<i class="sbg-seg" data-s="' + x.s + '" style="--c:' + SAND_COLOR[x.s] + '"></i>').join('') + '<em class="sb-mark" title="Arena ya bombeada"></em></div>' +
+          '<div class="sbg-leg">' + st.map(x => '<span class="sbl" data-s="' + x.s + '"><i style="background:' + SAND_COLOR[x.s] + '"></i><b>' + esc(x.label) + '</b><span class="v"></span></span>').join('') + '</div></div>'
+        : st.map(x => '<div class="sbr" data-s="' + x.s + '"><div class="sbr-l"><span class="sl s-' + x.s + '"><i></i>' + esc(x.label) + '</span><small>' + esc(x.mine) + '</small></div>' +
+          '<div class="sbr-track"><i class="sbr-fill" style="--c:' + SAND_COLOR[x.s] + '"></i><em class="sb-mark" title="Arena ya bombeada"></em></div><div class="sbr-v"></div></div>').join('');
     }
-    const groups = [];
-    let cur = null;
-    show.forEach(r => {
-      if (!cur || cur.key !== r.shiftKey) { cur = { key: r.shiftKey, day: r.day, shift: r.shift, start: r.shiftStart, rows: [] }; groups.push(cur); }
-      cur.rows.push(r);
-    });
-    const sh = S.config.shiftStartHour == null ? 6 : S.config.shiftStartHour;
-    const shTx = s => s === 'D' ? 'Día ' + pad(sh) + ':00–' + pad((sh + 12) % 24) + ':00' : 'Noche ' + pad((sh + 12) % 24) + ':00–' + pad(sh) + ':00';
-    const nowKey = E.shiftOf(now, tz(), sh).key;
-    const opts = c => carriers().map(x => '<option value="' + esc(x.id) + '"' + (x.id === c ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('');
-    let i = 0;
-    const html = groups.map(g => {
-      const all = M.slots.filter(x => x.shiftKey === g.key && x.needed && sandOn(x.s));
-      const done = all.filter(x => x.asg).length;
-      const late = all.filter(x => x.status === 'late').length;
-      return '<div class="shg"><div class="shg-h' + (g.key === nowKey ? ' now' : '') + '"><span class="d">' + fDayKey(g.day) + '</span><span class="sh">' + shTx(g.shift) + (g.key === nowKey ? ' · turno actual' : '') + '</span>' +
-        '<span class="bar"><i style="--s:' + (all.length ? (done / all.length).toFixed(4) : 0) + '"></i></span>' +
-        '<span class="cnt"><b>' + done + '</b>/' + all.length + ' asignados' + (late ? ' · <span class="r">' + nL(late, 'vencido', 'vencidos') + '</span>' : '') + '</span></div>' +
-        '<div class="rhead"><span></span><span>Load</span><span class="c-mine">Arenera</span><span>Etapa</span><span>Asignar antes de</span><span>En locación</span><span>Estado</span><span>Carrier</span></div>' +
-        g.rows.map(r => {
-          i++;
-          const on = !!r.asg;
-          const m = mineOf(r.mine);
-          return '<div class="row ' + r.status + (on ? ' done' : '') + (r.prefill ? ' pre' : '') + '" data-slot="' + r.id + '" style="--i:' + Math.min(i, 20) + '">' +
-            '<div class="c c-tick"><button type="button" class="tick' + (on ? ' on' : '') + '" data-tick="' + r.id + '"' + (on ? ' style="--tc:' + carrierColor(r.carrier) + '"' : '') + ' aria-pressed="' + on + '" aria-label="' + (on ? 'Quitar asignación de ' + r.id : 'Asignar ' + r.id + ' a ' + esc(carrierName(ui.carrier))) + '">' + sv(IC.tick, 14) + '</button></div>' +
-            '<div class="c c-slot">' + slotChip(r) + '</div>' +
-            '<div class="c c-mine mut">' + esc(m.name) + '</div>' +
-            '<div class="c c-stg stg">E' + r.stage + '</div>' +
-            '<div class="c c-ab tm">' + fDT(r.ab) + (on ? '' : '<small>' + cd(r.prefill ? r.ab : r.hard) + '</small>') + '</div>' +
-            '<div class="c c-nb mono mut">' + fDT(r.nb) + '</div>' +
-            '<div class="c c-st">' + stPill(r.status) + '</div>' +
-            '<div class="c c-who who">' + (on ? '<select class="csel" data-csel="' + r.id + '" aria-label="Carrier de ' + r.id + '" style="border-left:3px solid ' + carrierColor(r.carrier) + '">' + opts(r.carrier) + '</select><span class="by">' + fTime(r.asgT) + (r.asg.by ? ' · ' + esc(r.asg.by) : '') + '</span>' : '<span class="mut">—</span>') + '</div>' +
-            '<div class="c c-meta">E' + r.stage + ' · ' + esc(m.name) + ' · en locación ' + fDT(r.nb) + '</div>' +
-            '</div>';
-        }).join('') + '</div>';
-    }).join('');
-    const list = $('#asList');
-    list.style.setProperty('--cc', carrierColor(ui.carrier));
-    list.innerHTML = html;
-  }
-  function renderCadence() {
-    const now = Date.now();
-    const R = rowsF('carrier').filter(r => r.needed);
-    /* si nada vence en las próximas 24 h (antes del prefill), la ventana arranca en la primera hora límite */
-    const firstPend = R.filter(r => !r.asg).reduce((m, r) => Math.min(m, r.ab), Infinity);
-    const shifted = isFinite(firstPend) && firstPend > now + DAY;
-    const h0 = Math.floor((shifted ? firstPend : now) / HOUR) * HOUR;
-    $('#pCad h3').textContent = shifted ? 'Cadencia · 24 h desde ' + fDT(h0) : 'Cadencia · próximas 24 h';
-    const buckets = [{ key: 'late', label: 'Vencidos', t0: -Infinity, t1: now }];
-    for (let h = 0; h < 24; h++) buckets.push({ key: h0 + h * HOUR, label: fTime(h0 + h * HOUR), t0: Math.max(now, h0 + h * HOUR), t1: h0 + (h + 1) * HOUR });
-    const sands = S.config.sands.filter(s => sandOn(s.id));
-    const pendIn = (b, s) => R.filter(r => r.s === s && !r.asg && (b.key === 'late' ? r.ab < now : (r.ab >= b.t0 && r.ab < b.t1)));
-    const asgIn = b => R.filter(r => r.asg && (b.key === 'late' ? false : (r.ab >= b.t0 && r.ab < b.t1)));
-    const val = rs => uVal(rs.length, rs.reduce((p, r) => p + r.w, 0));
-    const ds = sands.map(s => ({
-      label: s.label, stack: 'p', data: buckets.map(b => val(pendIn(b, s.id))),
-      backgroundColor: dim(buckets.map(b => b.key === 'late' ? '#D9534F' : SAND_COLOR[s.id]), .25), borderRadius: 5, maxBarThickness: 26
-    }));
-    ds.push({ label: 'Ya asignados', stack: 'p', data: buckets.map(b => val(asgIn(b))), backgroundColor: dim(buckets.map(() => GHOST), .4), borderRadius: 5, maxBarThickness: 26 });
-    const lateN = R.filter(r => !r.asg && r.ab < now).length;
-    const next24 = R.filter(r => !r.asg && r.ab >= now && r.ab < now + DAY).length;
-    const inWin = R.filter(r => r.ab >= h0 && r.ab < h0 + DAY).length;
-    const b = $('#cadBadge');
-    b.textContent = lateN ? nL(lateN, 'vencido', 'vencidos') : shifted ? 'arranca ' + fRel(firstPend, now) : next24 + ' en 24 h';
-    b.className = 'pbadge ' + (lateN ? 'bad' : shifted ? 'warn' : '');
-    chart('as_cad', {
-      type: 'bar', data: { labels: buckets.map(x => x.label), datasets: ds },
-      options: {
-        scales: { x: Object.assign({}, gX, { stacked: true, ticks: Object.assign({}, gX.ticks, { maxTicksLimit: 13 }) }), y: yCount(inWin + lateN, { stacked: true }) },
-        plugins: {
-          tooltip: tt3({
-            title: it => { const x = buckets[it[0].dataIndex]; return x.key === 'late' ? 'Vencidos sin asignar' : fDay(x.key) + ' · ' + x.label + '–' + fTime(x.t1); },
-            label: c => c.parsed.y ? ' ' + c.dataset.label + ': ' + uFmt(c.parsed.y) + ' ' + uLbl() : null,
-            rows: i => {
-              const x = buckets[i];
-              const p = sands.reduce((q, s) => q + pendIn(x, s.id).length, 0), a = asgIn(x).length;
-              const out = ['Total con hora límite aquí: ' + (p + a) + ' loads', 'Asignados: ' + a + ' · pendientes: ' + p];
-              if (p + a) out.push('Avance de la hora: ' + nf1.format(a / (p + a) * 100) + '%');
-              out.push('clic filtra la cola →');
-              return out;
-            }
-          })
-        },
-        onClick: (e, els) => { if (!els || !els.length) return; const x = buckets[els[0].index]; ui.asHour = ui.asHour === x.key ? null : x.key; ui.asDay = null; if (ui.asHour != null && ui.asStatus === 'asg') ui.asStatus = 'all'; renderSoon(); }
+    let off = 0;
+    st.forEach(x => {
+      const cons = consumedLbs(x.s);
+      if (mode === 'general') {
+        const seg = body.querySelector('.sbg-seg[data-s="' + x.s + '"]');
+        const w = req ? x.lbs / req : 0;
+        if (seg) seg.style.transform = 'translateX(' + (off * 100).toFixed(3) + '%) scaleX(' + w.toFixed(5) + ')';
+        off += w;
+        const v = body.querySelector('.sbl[data-s="' + x.s + '"] .v');
+        if (v) v.innerHTML = uTxt(x.n, x.lbs) + ' / ' + uTxt(x.req, x.reqLbs) + ' · <b>E' + nf1.format(x.cov) + '</b>';
+      } else {
+        const row = body.querySelector('.sbr[data-s="' + x.s + '"]');
+        if (!row) return;
+        row.querySelector('.sbr-fill').style.transform = 'scaleX(' + (x.reqLbs ? Math.min(1, x.lbs / x.reqLbs) : 0).toFixed(5) + ')';
+        row.querySelector('.sb-mark').style.transform = 'translateX(' + ((x.reqLbs ? Math.min(1, cons / x.reqLbs) : 0) * 100).toFixed(3) + '%)';
+        row.querySelector('.sb-mark').hidden = !cons;
+        row.querySelector('.sbr-v').innerHTML = '<b>' + uTxt(x.n, x.lbs) + '</b> / ' + uTxt(x.req, x.reqLbs) + ' ' + uLbl() + ' · ' + nf1.format(x.reqLbs ? x.lbs / x.reqLbs * 100 : 0) + '% · alcanza <b>E' + nf1.format(x.cov) + '</b>';
       }
     });
-    legend('as_cad', sands.map(s => ({ label: s.label, color: SAND_COLOR[s.id] })).concat([
-      { label: 'Ya asignados', color: GHOST }, { label: 'Vencidos sin asignar', color: '#D9534F', toggle: false }]));
-    chartNote('as_cad', {
-      read: lateN ? 'Hay <b>' + nL(lateN, 'load vencido', 'loads vencidos') + '</b>: ' + (lateN === 1 ? 'va' : 'van') + ' primero en la cola, antes que la cadencia de la hora.'
-        : shifted ? 'Nada vence en las próximas 24 h. La primera hora límite es <b>' + fDT(firstPend) + '</b>; la gráfica muestra las 24 h desde ahí (<b>' + inWin + '</b> loads).'
-          : 'Sin vencidos. En las próximas 24 h vencen <b>' + next24 + '</b> loads.', kind: 'filter', act: 'clic filtra la cola →' });
+    if (mode === 'general') {
+      const cons = st.reduce((p, x) => p + consumedLbs(x.s), 0);
+      const mk = body.querySelector('.sbg .sb-mark');
+      if (mk) { mk.hidden = !cons; mk.style.transform = 'translateX(' + ((req ? Math.min(1, cons / req) : 0) * 100).toFixed(3) + '%)'; }
+    }
+    /* pie: hasta dónde alcanza y colchón contra la etapa del pozo */
+    const lim = st.reduce((m, x) => (m == null || x.cov < m.cov ? x : m), null);
+    const w = M.well;
+    const wellPos = w.phase === 'frac' || w.phase === 'done' ? Math.max(0, Math.min(M.N, w.xNow)) : 0;
+    const where = w.phase === 'pre' ? 'el prefill arranca ' + fDT(w.prefillStart) : w.phase === 'prefill' ? 'el frac arranca ' + fDT(w.fracStart) : w.phase === 'done' ? 'pozo terminado' : 'el pozo va en <b>E' + nf1.format(wellPos) + '</b>' + (w.lastRep ? ' (reporte ' + fTime(w.lastRep.t) + ')' : ' (plan)');
+    $('#sbFoot').innerHTML = lim ? 'La arena asignada alcanza hasta la etapa <b>E' + nf1.format(lim.cov) + '</b>' + (st.length > 1 ? ' · limita <b>' + esc(lim.label) + '</b>' : '') + ' · ' + where +
+      (w.phase === 'frac' ? ' · colchón <b class="' + (lim.cov - wellPos < (S.config.bufferStages || 2) ? 'r' : 'g') + '">' + nf1.format(lim.cov - wellPos) + ' et</b>' : '') : '';
+    /* siguiente load */
+    const nx = qNext();
+    $('#sbNext').innerHTML = nx
+      ? '<div class="sbn"><span class="sbn-k">Siguiente</span><span class="sbn-seq">#' + nx.seq + '</span>' + slotChip(nx) +
+        '<span class="sbn-m">' + esc(mineOf(nx.mine).name) + ' · PO ' + (nx.po ? '<b class="mono">' + esc(nx.po) + '</b>' : '<span class="mut">—</span>') + ' · E' + nx.stage + '</span>' +
+        '<button type="button" class="btn primary sm" data-assign-q="' + nx.id + '">Asignar</button></div>'
+      : '<div class="sbn done">Todos los loads del diseño están asignados.</div>';
+    renderSandMini(st, tot, totN, req, reqN, nx);
+    /* burbuja +1 load donde creció la barra (sólo tras una palomita propia) */
+    if (ui.bump) { const b = ui.bump; ui.bump = null; showBump(b, st, req); }
+  }
+  function showBump(b, st, req) {
+    const mini = $('#sbMini').classList.contains('show');
+    const body = $('#sbBody');
+    if (!mini && (!body || !body.offsetParent)) return;          // la pestaña Asignar no está a la vista
+    let host, x;
+    if (mini) {
+      const bar = $('#sbmBar'); host = $('#sbMini .sbm-in');
+      let off = 0; for (const q of st) { off += req ? q.lbs / req : 0; if (q.s === b.s) break; }
+      x = bar.offsetLeft + off * bar.offsetWidth;
+    } else if (ui.sbMode === 'arena') {
+      const row = body.querySelector('.sbr[data-s="' + b.s + '"]'), tr = row && row.querySelector('.sbr-track');
+      const q = st.find(z => z.s === b.s);
+      if (!tr || !q) return;
+      host = row; x = tr.offsetLeft + (q.reqLbs ? Math.min(1, q.lbs / q.reqLbs) : 0) * tr.offsetWidth;
+    } else {
+      const tr = body.querySelector('.sbg-track'); host = body.querySelector('.sbg');
+      if (!tr || !host) return;
+      let off = 0; for (const q of st) { off += req ? q.lbs / req : 0; if (q.s === b.s) break; }
+      x = tr.offsetLeft + off * tr.offsetWidth;
+    }
+    const el = document.createElement('span');
+    /* en la barra grande la burbuja va dentro del riel, junto a donde creció (a la izquierda si ya no cabe) */
+    const trackW = mini ? 0 : (host.querySelector('.sbg-track,.sbr-track') || host).offsetWidth;
+    const flip = !mini && trackW && (x - (host.querySelector('.sbg-track,.sbr-track') || host).offsetLeft) > trackW * 0.72;
+    el.className = 'sb-bump ' + (b.n > 0 ? 'up' : 'dn') + (mini ? ' mini' : ' in') + (flip ? ' flip' : '');
+    el.style.setProperty('--c', SAND_DARK[b.s] || '#1E6B7A');
+    el.style.left = Math.round(x) + 'px';
+    if (!mini) { const tr = host.querySelector('.sbg-track,.sbr-track'); if (tr) el.style.top = Math.round(tr.offsetTop + tr.offsetHeight / 2) + 'px'; }
+    el.textContent = (b.n > 0 ? '+1 load · +' : '−1 load · −') + fmt.int(Math.abs(b.lbs)) + ' lb';
+    host.appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+    const hit = mini ? $('#sbmBar [data-s="' + b.s + '"]') : body.querySelector('[data-s="' + b.s + '"]');
+    if (hit) { hit.classList.remove('glow'); void hit.offsetWidth; hit.classList.add('glow'); }
+    const lg = body && body.querySelector('.sbl[data-s="' + b.s + '"]');
+    if (lg) { lg.classList.remove('glow'); void lg.offsetWidth; lg.classList.add('glow'); }
+  }
+  function renderSandMini(st, tot, totN, req, reqN, nx) {
+    const bar = $('#sbmBar');
+    if (bar.dataset.sands !== st.map(x => x.s).join(',')) {
+      bar.dataset.sands = st.map(x => x.s).join(',');
+      bar.innerHTML = st.map(x => '<i class="sbm-seg" data-s="' + x.s + '" style="--c:' + SAND_COLOR[x.s] + '"></i>').join('');
+    }
+    let off = 0;
+    st.forEach(x => { const seg = bar.querySelector('[data-s="' + x.s + '"]'); const w = req ? x.lbs / req : 0; if (seg) seg.style.transform = 'translateX(' + (off * 100).toFixed(3) + '%) scaleX(' + w.toFixed(5) + ')'; off += w; });
+    $('#sbmTotal').textContent = uTxt(totN, tot) + ' ' + uLbl() + ' · ' + nf1.format(req ? tot / req * 100 : 0) + '%';
+    $('#sbmNext').innerHTML = nx ? 'Sig. <b>#' + nx.seq + '</b> ' + esc(sandLabel(nx.s)) + ' · ' + String(nx.k).padStart(3, '0') : 'Completo';
+  }
+  /* la barra mínima aparece fija bajo la barra superior cuando la tarjeta grande sale de la vista */
+  let sbObs = null;
+  function watchSandBar() {
+    if (sbObs || !window.IntersectionObserver) return;
+    sbObs = new IntersectionObserver(es => { es.forEach(en => { const on = !en.isIntersecting && ui.view === 'asignar'; $('#sbMini').classList.toggle('show', on); document.body.classList.toggle('minion', on); }); }, { rootMargin: '-' + (topH() + 4) + 'px 0px 0px 0px', threshold: 0 });
+    sbObs.observe($('#sandBar'));
+  }
+  function topH() { const t = $('#topbar'); return t ? t.getBoundingClientRect().height : 58; }
+
+  /* grano de arena que vuela de la palomita a su segmento de la barra */
+  function flyGrain(fromEl, s) {
+    if (!fromEl || !fromEl.getBoundingClientRect || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    const mini = $('#sbMini').classList.contains('show');
+    const target = mini ? $('#sbmBar') : ($('#sbBody .sbg-track') || $('#sbBody .sbr[data-s="' + s + '"] .sbr-track'));
+    if (!target || ui.view !== 'asignar' && !mini) return;
+    const a = fromEl.getBoundingClientRect(), b = target.getBoundingClientRect();
+    if (!b.width) return;
+    const st = sandStats(), req = st.reduce((p, x) => p + x.reqLbs, 0) || 1;
+    let end = 0.5, off = 0;
+    if (mini || ui.sbMode !== 'arena') { for (const x of st) { off += x.lbs / req; if (x.s === s) { end = off; break; } } }
+    else { const x = st.find(q => q.s === s); if (x && x.reqLbs) end = x.lbs / x.reqLbs; }
+    const x0 = a.left + a.width / 2, y0 = a.top + a.height / 2;
+    const x1 = b.left + b.width * Math.max(0.02, Math.min(0.98, end)), y1 = b.top + b.height / 2;
+    for (let i = 0; i < 5; i++) {
+      const g = document.createElement('i');
+      g.className = 'grain';
+      g.style.background = SAND_COLOR[s] || '#1E6B7A';
+      document.body.appendChild(g);
+      const jx = (Math.random() - .5) * 18, jy = (Math.random() - .5) * 10, lift = 60 + Math.random() * 50;
+      const mx = (x0 + x1) / 2 + jx, my = Math.min(y0, y1) - lift;
+      const an = g.animate([
+        { transform: 'translate(' + x0 + 'px,' + y0 + 'px) scale(.6)', opacity: 0 },
+        { transform: 'translate(' + (x0 + jx * .4) + 'px,' + (y0 - 10) + 'px) scale(1)', opacity: 1, offset: .12 },
+        { transform: 'translate(' + mx + 'px,' + my + 'px) scale(1.1)', opacity: 1, offset: .55 },
+        { transform: 'translate(' + (x1 + jx) + 'px,' + (y1 + jy * .3) + 'px) scale(.55)', opacity: .15 }
+      ], { duration: 620 + i * 55, delay: i * 35, easing: 'cubic-bezier(.3,.6,.2,1)', fill: 'forwards' });
+      an.onfinish = () => g.remove();
+    }
+  }
+
+  /* ---------- la cola ---------- */
+  function qRowHTML(r, nextId) {
+    const st = qStatus(r), on = !!r.asg, isNext = r.id === nextId;
+    const reqLbs = M.kpi.reqLbs || 1;
+    const opts = '<option value="">—</option>' + carriers().map(x => '<option value="' + esc(x.id) + '"' + (x.id === r.carrier ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('');
+    const sumV = uVal(r.seq, r.cumAll);
+    const sumMain = uFmt(sumV) + ' <small>' + (ui.unit === 'loads' && sumV === 1 ? 'load' : uLbl()) + '</small>';
+    const sumSub = esc(sandLabel(r.s)) + ' ' + (ui.unit === 'loads' ? r.k + '/' + M.sands[r.s].nNeeded : uFmt(uVal(r.k, r.cumAfter)));
+    return '<div class="qrow' + (on ? ' on' : '') + (isNext ? ' nx' : '') + (st === 'late' ? ' late' : '') + (r.prefill ? ' pre' : '') + '" data-slot="' + r.id + '" role="listitem" style="--sc:' + SAND_COLOR[r.s] + '">' +
+      '<div class="q-tick"><button type="button" class="tick' + (on ? ' on' : '') + '" data-tick="' + r.id + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Quitar asignación de #' + r.seq : 'Asignar #' + r.seq) + '">' + sv(IC.tick, 14) + '</button></div>' +
+      '<div class="q-seq">' + r.seq + '</div>' +
+      '<div class="q-load">' + slotChip(r) + '</div>' +
+      '<div class="q-mine">' + esc(mineOf(r.mine).name) + '</div>' +
+      '<div class="q-po">' + (r.po ? esc(r.po) : '<span class="mut">—</span>') + '</div>' +
+      '<div class="q-stg">E' + r.stage + (r.prefill ? '<small>PREFILL</small>' : '') + '</div>' +
+      '<div class="q-sum"><div><b>' + sumMain + '</b><span>' + sumSub + '</span></div><i style="--p:' + Math.min(1, r.cumAll / reqLbs).toFixed(4) + '"></i></div>' +
+      '<div class="q-st"><span class="st q' + st + '">' + QST[st] + '</span>' + (isNext ? '<span class="nxtag">Siguiente</span>' : '') + '</div>' +
+      '<div class="q-car">' + (on ? '<select class="csel" data-csel="' + r.id + '" aria-label="Carrier de #' + r.seq + '">' + opts + '</select>' : '<span class="mut">—</span>') + '</div>' +
+      '</div>';
+  }
+  function qKey(r, nextId) { return qStatus(r) + '|' + (r.carrier || '') + '|' + (r.id === nextId ? 1 : 0) + '|' + (r.po || ''); }
+  function renderQueue() {
+    const list = $('#asList');
+    const rows = qRows();
+    const nx = qNext();
+    const nextId = nx ? nx.id : null;
+    const sig = rows.map(r => r.id + ':' + r.w).join(',') + '|' + ui.unit;
+    if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#asList select')) { ui.pendingList = true; return; }
+    ui.pendingList = false;
+    if (list.dataset.sig !== sig) {
+      list.dataset.sig = sig;
+      list.innerHTML = rows.map(r => qRowHTML(r, nextId)).join('') + '<div class="empty qempty" hidden></div>';
+      Array.from(list.children).forEach((el, i) => { if (rows[i]) el.dataset.k = qKey(rows[i], nextId); });
+    } else {
+      const byId = {};
+      Array.from(list.children).forEach(el => { if (el.dataset.slot) byId[el.dataset.slot] = el; });
+      rows.forEach(r => {
+        const el = byId[r.id], key = qKey(r, nextId);
+        if (!el || el.dataset.k === key) return;
+        const tmp = document.createElement('div');
+        tmp.innerHTML = qRowHTML(r, nextId);
+        const nel = tmp.firstElementChild;
+        nel.dataset.k = key;
+        if (ui.flash === r.id) nel.classList.add(r.asg ? 'flash' : 'unflash');
+        el.replaceWith(nel);
+      });
+    }
+    ui.flash = null;
+    applyQueueFilter(rows);
+  }
+  function applyQueueFilter(rows) {
+    rows = rows || qRows();
+    const raw = ui.asQuery.trim().toLowerCase();
+    const exact = /^#\d+$/.test(raw) ? +raw.slice(1) : null;       // "#120" = el load número 120
+    const q = exact != null ? '' : raw.replace(/^#/, '');
+    const cnt = { all: rows.length, pend: 0, asg: 0, late: 0 };
+    rows.forEach(r => { const st = qStatus(r); if (st === 'asg') cnt.asg++; else cnt.pend++; if (st === 'late') cnt.late++; });
+    const chips = [['all', 'Todos'], ['pend', 'Pendientes'], ['asg', 'Asignados'], ['late', 'Vencidos']];
+    $('#asStatus').innerHTML = chips.map(c => '<button type="button" class="chip' + (ui.asStatus === c[0] ? ' active' : '') + '" data-st="' + c[0] + '">' + c[1] + ' <span class="n">' + cnt[c[0]] + '</span></button>').join('');
+    const byId = {};
+    rows.forEach(r => { byId[r.id] = r; });
+    let shown = 0;
+    Array.from($('#asList').children).forEach(el => {
+      const r = byId[el.dataset.slot];
+      if (!r) return;
+      const st = qStatus(r);
+      let ok = ui.asStatus === 'all' || (ui.asStatus === 'pend' && st !== 'asg') || (ui.asStatus === 'asg' && st === 'asg') || (ui.asStatus === 'late' && st === 'late');
+      if (ok && exact != null) ok = r.seq === exact;
+      if (ok && q) {
+        const hay = [String(r.seq), r.id, sandLabel(r.s) + ' ' + r.k, String(r.k).padStart(3, '0'), r.po || '', mineOf(r.mine).name, 'e' + r.stage, r.prefill ? 'prefill' : '', r.carrier ? carrierName(r.carrier) : ''].join(' | ').toLowerCase();
+        ok = q.split(/\s+/).every(t => hay.includes(t));
+      }
+      el.hidden = !ok;
+      if (ok) shown++;
+    });
+    const empty = $('#asList .qempty');
+    if (empty) { empty.hidden = shown > 0; empty.textContent = carrierFilterActive() ? 'Hay un filtro de carrier activo: sólo se ven sus loads asignados.' : 'Nada con estos filtros.'; }
+    $('#asCount').textContent = shown + ' de ' + rows.length + ' loads';
+  }
+  function scrollToNext() {
+    const nx = qNext();
+    if (!nx) return;
+    if (ui.asStatus === 'asg') { ui.asStatus = 'all'; applyQueueFilter(); }
+    const el = $('#asList [data-slot="' + nx.id + '"]');
+    if (!el) return;
+    el.hidden = false;
+    const y = el.getBoundingClientRect().top + window.scrollY - topH() - 110;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    el.classList.remove('ping'); void el.offsetWidth; el.classList.add('ping');
   }
 
   /* ============================== AVANCE ============================== */
@@ -1093,17 +1211,17 @@
     let totalU = 0;
     S.config.sands.forEach(s => {
       const x = M.sands[s.id], o = x.omma;
-      if (!o.assigned && !o.delivered) return;
+      if (!o.delivered) return;
       totalU += o.reconcile.length;
       out.push('<div class="rc"><div class="nm">' + slotChip({ s: s.id, k: 0 }).replace(' · 000', '') + '</div>' +
         (o.reconcile.length ? '<button type="button" class="btn sm primary" data-recon="' + s.id + '">Palomear ' + o.reconcile.length + ' como ' + esc(carrierName(M.trackedId)) + '</button>' : '<span class="st del">conciliado</span>') +
-        '<div class="ks"><span><b>' + o.assigned + '</b>asignados OMMA</span><span><b>' + o.delivered + '</b>entregados (archivo)</span><span><b>' + o.matched + '</b>casados</span><span><b class="a">' + o.pending + '</b>en camino / sin registro</span><span><b class="a">' + o.unmatched.length + '</b>sin palomear</span></div></div>');
+        '<div class="ks"><span><b>' + o.pool + '</b>asignados OMMA o sin carrier</span><span><b>' + o.delivered + '</b>entregados OMMA (archivo)</span><span><b>' + o.matched + '</b>casados</span><span><b class="a">' + o.unmatched.length + '</b>entregas sin palomear</span></div></div>');
     });
     const meta = S.omma && S.omma.meta;
     const rng = M.stats.range;
     $('#reconBadge').textContent = totalU ? totalU + ' por conciliar' : 'al día';
     $('#reconBadge').className = 'pbadge ' + (totalU ? 'warn' : 'ok');
-    $('#recon').innerHTML = (out.length ? out.join('') : '<div class="empty">Sin loads OMMA asignados ni entregados todavía.</div>') +
+    $('#recon').innerHTML = (out.length ? out.join('') : '<div class="empty">Sin entregas OMMA de este pozo en el archivo.</div>') +
       '<div class="note">Los entregados salen del último archivo de loads OMMA' + (meta && meta.file ? ' (<b>' + esc(meta.file) + '</b>' + (meta.at ? ', ' + fDT(meta.at) : '') + ')' : '') + (rng ? '; cubre del ' + fDT(rng.from) + ' al ' + fDT(rng.to) : '') + '. Lo asignado a OMMA después de ese archivo aún no puede aparecer como entregado.' +
       (M.countFrom ? ' Sólo cuentan entregas desde <b>' + fDT(M.countFrom) + '</b>' + (M.wellLoads.length > M.jobLoads.length ? ' (' + (M.wellLoads.length - M.jobLoads.length) + ' anteriores quedan fuera)' : '') + '.' : '') + '</div>';
   }
@@ -1161,12 +1279,12 @@
               const tt = sands.reduce((p, s) => p + val(d, s.id), 0);
               const out = ['Total del día: ' + uFmt(tt) + ' ' + uLbl() + ' · asignados ' + d.asg + ' de ' + d.total + ' loads'];
               if (cap[i] != null) out.push('vs capacidad: ' + (tt <= cap[i] ? 'cabe (' : 'faltan ') + uFmt(Math.abs(cap[i] - tt)) + ' ' + uLbl() + (tt <= cap[i] ? ' de holgura)' : ''));
-              out.push('clic abre la cola de ese día →');
+              out.push('clic abre la cola →');
               return out;
             }
           })
         },
-        onClick: (e, els) => { if (!els || !els.length) return; ui.asDay = days[els[0].index].day; ui.asHour = null; ui.asStatus = 'all'; go('asignar'); }
+        onClick: (e, els) => { if (!els || !els.length) return; ui.asStatus = 'pend'; go('asignar'); }
       }
     });
     legend('pl_days', sands.map(s => ({ label: s.label, color: SAND_COLOR[s.id] })).concat([{ label: 'Capacidad del plan', swatch: SW.dash('#C25151'), line: true }]));
@@ -1181,7 +1299,7 @@
       read = 'El día más cargado es <b>' + fDayKey(pd.day) + '</b>: <b>' + uFmt(totOf(pd)) + ' ' + uLbl() + '</b> (' + mix + ').' +
         (nOver ? ' <b>' + nL(nOver, 'día', 'días') + '</b> por encima de la capacidad de los trucks del plan, hasta <b>' + uFmt(Math.max.apply(null, over)) + ' ' + uLbl() + '</b> de más.' : cap.some(c => c != null) ? ' Los trucks del plan alcanzan en los días que tienen plan.' : '');
     }
-    chartNote('pl_days', { read, kind: 'detail', act: 'clic abre ese día →' });
+    chartNote('pl_days', { read, kind: 'detail', act: 'clic abre la cola →' });
   }
   function renderTrucks() {
     const sp = M.segPlans;
@@ -1243,6 +1361,7 @@
       '<label class="fld"><span>Cliente</span>' + txt('job.client', d.job.client) + '</label>' +
       '<label class="fld"><span>Etapas totales</span>' + num('job.totalStages', d.job.totalStages, 'step="1" min="1" max="2000"') + '</label>' +
       '<label class="fld"><span>Inicio del prefill</span>' + dt('schedule.prefillStart', d.schedule.prefillStart) + '</label>' +
+      '<label class="fld"><span>Fin del prefill <em>vacío = inicio de frac − lead</em></span>' + dt('schedule.prefillEnd', d.schedule.prefillEnd) + '</label>' +
       '<label class="fld"><span>Inicio de frac · etapa 1</span>' + dt('schedule.fracStart', d.schedule.fracStart) + '</label>' +
       '<label class="fld"><span>Contar entregas OMMA desde <em>vacío = todas</em></span>' + dt('countFrom', d.countFrom) + '</label>' +
       '<label class="fld"><span>Colchón en locación <em>etapas</em></span>' + num('bufferStages', d.bufferStages, 'step="0.5" min="0"') + '</label>' +
@@ -1260,6 +1379,9 @@
     h += '<div class="dsec"><h4>Prefill y productividad</h4><div class="fgrid">' +
       sands.map(s => '<label class="fld"><span>Prefill ' + esc(s.label) + ' <em>loads</em></span>' + num('prefill.' + s.id, (d.prefill || {})[s.id], 'step="1" min="0"') + '</label>').join('') +
       sands.map(s => '<label class="fld"><span>Loads por truck/día ' + esc(s.label) + ' <em>vacío = dato</em></span>' + num('loadsPerTruckDay.' + s.id, (d.loadsPerTruckDay || {})[s.id], 'step="0.1" min="0"') + '</label>').join('') +
+      '</div></div>';
+    h += '<div class="dsec"><h4>PO por arena <em class="hint">vacío = el del último export de OMMA</em></h4><div class="fgrid">' +
+      sands.map(s => { const x = M.sands[s.id]; return '<label class="fld"><span>PO ' + esc(s.label) + (x && x.poSrc === 'export' ? ' <em>export: ' + esc(x.po) + '</em>' : '') + '</span>' + txt('po.' + s.id, (d.po || {})[s.id]) + '</label>'; }).join('') +
       '</div></div>';
     h += '<div class="dsec"><h4>Carriers</h4><div class="fgrid">' +
       d.carriers.map((c, i) => '<label class="fld"><span>Carrier ' + (i + 1) + (c.tracked ? ' <em>· loads trackeados</em>' : '') + '</span>' + txt('carriers.' + i + '.name', c.name) + '</label>').join('') +
@@ -1471,11 +1593,11 @@
     const counts = l => !M.countFrom || (l.d || l.a) >= M.countFrom;
     const nPrev = M.wellLoads.length - M.jobLoads.length;
     $('#loadsBadge').textContent = M.jobLoads.length + ' cuentan' + (nPrev ? ' · ' + nPrev + ' previos' : '');
-    $('#loadsTable').innerHTML = '<thead><tr><th>Load</th><th>Arena</th><th>Arenera</th><th style="text-align:right">Peso</th><th>Aceptado</th><th>Entregado</th><th style="text-align:right">Asig → entr.</th><th style="text-align:right">Tránsito</th><th style="text-align:right">En locación</th><th>Truck</th><th>Cuenta</th></tr></thead><tbody>' +
-      (L.length ? L.map(l => '<tr' + (counts(l) ? '' : ' class="prev"') + '><td class="m">#' + esc(l.n) + '</td><td>' + slotChip({ s: l.s, k: 0 }).replace(' · 000', '') + '</td><td>' + esc(mineOf(l.m).name || l.t) + '</td><td class="n">' + fmt.int(l.w) + '</td><td class="m">' + fDT(l.a) + '</td><td class="m">' + fDT(l.d) + '</td>' +
+    $('#loadsTable').innerHTML = '<thead><tr><th>Load</th><th>Arena</th><th>Arenera</th><th>PO</th><th style="text-align:right">Peso</th><th>Aceptado</th><th>Entregado</th><th style="text-align:right">Asig → entr.</th><th style="text-align:right">Tránsito</th><th style="text-align:right">En locación</th><th>Truck</th><th>Cuenta</th></tr></thead><tbody>' +
+      (L.length ? L.map(l => '<tr' + (counts(l) ? '' : ' class="prev"') + '><td class="m">#' + esc(l.n) + '</td><td>' + slotChip({ s: l.s, k: 0 }).replace(' · 000', '') + '</td><td>' + esc(mineOf(l.m).name || l.t) + '</td><td class="m">' + esc(l.po || '—') + '</td><td class="n">' + fmt.int(l.w) + '</td><td class="m">' + fDT(l.a) + '</td><td class="m">' + fDT(l.d) + '</td>' +
         '<td class="n">' + (l.a && l.d ? E.fmtDur((l.d - l.a) / MIN) : '—') + '</td><td class="n">' + E.fmtDur(l.tx) + '</td><td class="n">' + E.fmtDur(l.td) + '</td><td class="m">' + esc(l.tr || '—') + '</td>' +
         '<td>' + (counts(l) ? '<span class="st del">arena del pozo</span>' : '<span class="st extra" title="Entregado antes del corte (' + esc(fDT(M.countFrom)) + '): se usa para tiempos y payload">antes del corte</span>') + '</td></tr>').join('')
-        : '<tr><td colspan="11"><div class="empty">Sin loads OMMA de este pozo.</div></td></tr>') + '</tbody>';
+        : '<tr><td colspan="12"><div class="empty">Sin loads OMMA de este pozo.</div></td></tr>') + '</tbody>';
   }
 
   /* ============================== navegación ============================== */
@@ -1488,6 +1610,7 @@
       const pv = VIEWS[iPrev];
       if (pv) destroyPage(pv.prefix);
       clearAllFloats(); hideDetail();
+      $('#sbMini').classList.remove('show'); document.body.classList.remove('minion');
     }
     ui.view = view;
     $$('.view').forEach(s => {
@@ -1499,6 +1622,7 @@
     try { history.replaceState(null, '', '#' + view); } catch (e) {}
     renderNav();
     if (M) renderView();
+    if (view === 'asignar') watchSandBar();
     requestAnimationFrame(() => { resizeVisibleCharts(); settleVisibleCharts(); });
     if (prev !== view) window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
   }
@@ -1529,22 +1653,25 @@
       const nv = t.closest('[data-view]'); if (nv) { go(nv.dataset.view); return; }
       const gd = t.closest('[data-go]'); if (gd) { go(gd.dataset.go); return; }
       const u = t.closest('#unitSeg button'); if (u) { ui.unit = u.dataset.u; saveUI(); renderSoon(); return; }
-      const cb = t.closest('.cbtn[data-c]'); if (cb) { ui.carrier = cb.dataset.c; saveUI(); renderSoon(); return; }
-      const as = t.closest('[data-assign]'); if (as) { assign(as.dataset.assign); return; }
+      const aq = t.closest('[data-assign-q]'); if (aq) { assign(aq.dataset.assignQ, null, aq); return; }
+      const as = t.closest('[data-assign]'); if (as) { assign(as.dataset.assign, null, as); return; }
+      const sm = t.closest('#sbMode button'); if (sm) { ui.sbMode = sm.dataset.m; saveUI(); renderSandBar(); return; }
+      if (t.closest('#goNext') || t.closest('#sbMini')) { if (ui.view !== 'asignar') go('asignar'); scrollToNext(); return; }
+      if (t.closest('#installBtn')) { installApp(); return; }
+      if (t.closest('#seedApply')) { $('#seedBar').hidden = true; Store.dispatch(reseedOp()); toast('Punto de partida aplicado: <b>37</b> loads ya asignados'); return; }
+      if (t.closest('#seedLater')) { $('#seedBar').hidden = true; return; }
       const an = t.closest('[data-assign-next]');
       if (an) {
         e.stopPropagation();
         const s = an.dataset.assignNext;
-        const nx = M.sands[s].slots.filter(x => x.needed && !x.asg).sort((a, b) => a.ab - b.ab)[0];
-        if (nx) assign(nx.id);
+        const nx = M.sands[s].slots.filter(x => x.needed && !x.asg).sort((a, b) => a.seq - b.seq)[0];
+        if (nx) assign(nx.id, null, an);
         return;
       }
       const sc = t.closest('.sand[data-sand]'); if (sc && !t.closest('button')) { crossFilter('sand', sc.dataset.sand); return; }
       const tk = t.closest('[data-tick]');
-      if (tk) { const id = tk.dataset.tick; if (S.asg[id]) unassign(id); else assign(id); return; }
-      const st = t.closest('#asStatus .chip'); if (st) { ui.asStatus = st.dataset.st; ui.asLimit = 80; renderSoon(); return; }
-      const cl = t.closest('[data-clear]'); if (cl) { if (cl.dataset.clear === 'hour') ui.asHour = null; else ui.asDay = null; renderSoon(); return; }
-      if (t.closest('#asMore')) { ui.asLimit += 120; renderAsList(); return; }
+      if (tk) { const id = tk.dataset.tick; if (S.asg[id]) { ui.flash = id; unassign(id); } else assign(id, null, tk); return; }
+      const st = t.closest('#asStatus .chip'); if (st) { ui.asStatus = st.dataset.st; applyQueueFilter(); return; }
       const gr = t.closest('#gapRange button'); if (gr) { ui.gapRange = gr.dataset.r; saveUI(); renderSoon(); return; }
       const bs = t.closest('#basisSeg button'); if (bs) { ui.basis = bs.dataset.b; saveUI(); renderSoon(); return; }
       const sp = t.closest('#segPick button'); if (sp) { ui.segPick = +sp.dataset.seg; ui.segPickSet = true; renderSoon(); return; }
@@ -1557,7 +1684,7 @@
         withMe(() => { Store.dispatch({ type: 'bulk', items, txt: 'conciliación ' + sandLabel(s) }); toast('Palomeados <b>' + items.length + '</b> loads ' + esc(sandLabel(s)) + ' como ' + esc(carrierName(M.trackedId))); });
         return;
       }
-      const cr = t.closest('.dnrow[data-cname]'); if (cr) { crossFilter('carrier', cr.dataset.cname); return; }
+      const cr = t.closest('.dnrow[data-sname]'); if (cr) { crossFilter('sand', cr.dataset.sname); return; }
       if (t.closest('#segAdd')) {
         const segs = ui.draft.segments;
         const last = segs[segs.length - 1];
@@ -1600,11 +1727,11 @@
       if (t.matches('#fileIn')) { handleFile(t.files[0]); t.value = ''; return; }
     });
     document.addEventListener('focusout', e => {
-      if (e.target.matches && e.target.matches('#asList select') && ui.pendingList) setTimeout(() => { if (!document.activeElement || !document.activeElement.closest('#asList select')) renderAsList(); }, 50);
+      if (e.target.matches && e.target.matches('#asList select') && ui.pendingList) setTimeout(() => { if (!document.activeElement || !document.activeElement.closest('#asList select')) renderQueue(); }, 50);
     });
     document.addEventListener('input', e => {
       const t = e.target;
-      if (t.id === 'asQuery') { ui.asQuery = t.value; ui.asLimit = 80; renderAsList(); return; }
+      if (t.id === 'asQuery') { ui.asQuery = t.value; applyQueueFilter(); return; }
       if (t.dataset && t.dataset.path && ui.draft) {
         let v = t.type === 'number' ? (t.value === '' ? null : +t.value) : t.value;
         setPath(ui.draft, t.dataset.path, v);
@@ -1617,10 +1744,10 @@
     $('#chipsSand').addEventListener('click', chipClick('sand'));
     $('#chipsCarrier').addEventListener('click', chipClick('carrier'));
     $('#carList').addEventListener('mouseover', e => {
-      const r = e.target.closest('.dnrow'); const ch = CHZ.ce_car; if (!r || !ch) return;
+      const r = e.target.closest('.dnrow'); const ch = CHZ.ce_sand; if (!r || !ch) return;
       try { ch.setActiveElements([{ datasetIndex: 0, index: +r.dataset.ci }]); ch.update('none'); } catch (_) {}
     });
-    $('#carList').addEventListener('mouseleave', () => { const ch = CHZ.ce_car; if (ch) try { ch.setActiveElements([]); ch.update('none'); } catch (_) {} });
+    $('#carList').addEventListener('mouseleave', () => { const ch = CHZ.ce_sand; if (ch) try { ch.setActiveElements([]); ch.update('none'); } catch (_) {} });
     $('#repForm').addEventListener('submit', e => {
       e.preventDefault();
       const n = Math.round(+$('#repN').value);
@@ -1638,7 +1765,9 @@
     drop.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleFile(f); });
     window.addEventListener('hashchange', () => { const h = location.hash.replace('#', ''); if (h && h !== ui.view) go(h); });
     let rt = 0;
-    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { resizeVisibleCharts(); if (spiral) { spiral.resize(); spiral.draw(); } }, 120); });
+    const setTop = () => document.documentElement.style.setProperty('--top-h', Math.round(topH()) + 'px');
+    setTop();
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { setTop(); resizeVisibleCharts(); if (spiral) { spiral.resize(); spiral.draw(); } }, 120); });
   }
   function saveDesign() {
     const d = Seed.clone(ui.draft);
@@ -1652,6 +1781,8 @@
     if (JSON.stringify(c0.segments) !== JSON.stringify(d.segments)) diff.push('tramos');
     if (c0.schedule.fracStart !== d.schedule.fracStart) diff.push('frac ' + d.schedule.fracStart.replace('T', ' '));
     if (c0.schedule.prefillStart !== d.schedule.prefillStart) diff.push('prefill ' + d.schedule.prefillStart.replace('T', ' '));
+    if ((c0.schedule.prefillEnd || '') !== (d.schedule.prefillEnd || '')) diff.push('fin prefill ' + (d.schedule.prefillEnd || '—').replace('T', ' '));
+    if (JSON.stringify(c0.po || {}) !== JSON.stringify(d.po || {})) diff.push('PO');
     if (JSON.stringify(c0.prefill) !== JSON.stringify(d.prefill)) diff.push('prefill loads');
     if (JSON.stringify(c0.carriers) !== JSON.stringify(d.carriers)) diff.push('carriers');
     withMe(() => {
@@ -1702,6 +1833,53 @@
     if (M) { const ph = phaseText(); const pt = $('#phase .ph-t'); if (pt) pt.innerHTML = ph.html; }
   }
 
+  /* ============================== punto de partida del pozo ==============================
+     Si el estado guardado viene de una versión anterior del diseño inicial, se carga el punto de partida
+     nuevo (prefill 23–28 sep, frac 28 sep 06:00, 37 loads ya asignados). Si nadie ha trabajado todavía se
+     aplica solo; si ya hay palomitas o cambios, se ofrece con un botón para no pisar trabajo. */
+  const USER_OPS = ['asg', 'unasg', 'setc', 'bulk', 'stage', 'stageDel', 'cfg', 'omma', 'ommaClear', 'resetAsg'];
+  function reseedOp() {
+    const cfg = Seed.clone(Seed.DEFAULT_CONFIG);
+    if (S && S.config && Array.isArray(S.config.carriers)) cfg.carriers = Seed.clone(S.config.carriers);
+    if (S && S.config && S.config.overrides) cfg.overrides = Seed.clone(S.config.overrides);
+    return { type: 'reseed', rev: Seed.REV, config: cfg, asg: Seed.baselineAsg(), txt: 'prefill 23–28 sep · frac 28 sep 06:00' };
+  }
+  function checkSeed() {
+    const bar = $('#seedBar');
+    if (!S || (S.seedRev || 0) >= Seed.REV) { bar.hidden = true; return; }
+    const worked = (S.log || []).some(e => USER_OPS.includes(e.type));
+    if (!worked) { bar.hidden = true; Store.dispatch(reseedOp()); toast('Punto de partida cargado: <b>37</b> loads ya asignados · frac 28 sep 06:00'); return; }
+    bar.hidden = false;
+    bar.innerHTML = sv(IC.alert, 16) + '<span>Hay un punto de partida nuevo del pozo: prefill del 23 al 28 sep, frac 28 sep 06:00 y <b>37 loads ya asignados</b> (30 de 20/40, 6 de 100 Mesh y 1 de 40/70). Reemplaza el diseño y las palomitas actuales; los loads OMMA y los reportes de etapa se conservan.</span>' +
+      '<button type="button" class="btn sm primary" id="seedApply">Aplicar</button><button type="button" class="btn sm ghost" id="seedLater">Ahora no</button>';
+  }
+
+  /* ============================== instalar como app ============================== */
+  let deferredInstall = null;
+  const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function initInstall() {
+    const btn = $('#installBtn');
+    btn.hidden = isStandalone() || !isIOS();
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; btn.hidden = isStandalone(); });
+    window.addEventListener('appinstalled', () => { deferredInstall = null; btn.hidden = true; toast('App instalada: ábrela desde tu escritorio o pantalla de inicio'); });
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  }
+  async function installApp() {
+    if (deferredInstall) {
+      const ev = deferredInstall; deferredInstall = null;
+      ev.prompt();
+      try { const r = await ev.userChoice; if (r && r.outcome === 'accepted') $('#installBtn').hidden = true; } catch (e) {}
+      return;
+    }
+    modal('Instalar OMMA Dispatch', isIOS()
+      ? '<p>En iPhone o iPad, desde Safari: toca <b>Compartir</b> y luego <b>Agregar a pantalla de inicio</b>. Queda como app, sin barra del navegador.</p>'
+      : '<p>En Chrome o Edge: abre el menú del navegador y elige <b>Instalar OMMA Dispatch</b> (o el ícono de instalar en la barra de direcciones). En Android: menú → <b>Instalar app</b>.</p>',
+      [{ label: 'Entendido', cls: 'primary' }]);
+  }
+
   /* ============================== arranque ============================== */
   async function boot() {
     const h = (location.hash || '').replace('#', '');
@@ -1718,7 +1896,9 @@
     setInterval(tickCountdowns, 15000);
     setInterval(renderSoon, 60000);      // estados que cambian con la hora (vencidos, ventana)
     startChartWatchdog(() => { RENDERED = {}; renderSoon(); });
+    initInstall();
     await Store.init();
+    checkSeed();
     window.__app = { get model() { return M; }, get state() { return S; }, ui, go, renderAll, Store };
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

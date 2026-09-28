@@ -130,6 +130,21 @@
           pushLog(state, { t, type: 'resetAsg', n: Object.keys(state.asg).length, by });
           state.asg = {};
           break;
+        case 'reseed': {
+          /* punto de partida nuevo del pozo: diseño + palomitas base. Conserva loads OMMA y reportes. */
+          if (!validConfig(op.config) || !op.asg || typeof op.asg !== 'object') { ok = false; break; }
+          if ((+state.seedRev || 0) >= (+op.rev || 0)) { ok = false; break; }   // ya está en esa versión: dos clientes a la vez no lo aplican dos veces
+          const asg = {};
+          Object.keys(op.asg).slice(0, 5000).forEach(k => {
+            const a = op.asg[k];
+            if (SLOT_RE.test(k) && a && typeof a === 'object') asg[k] = { c: str(a.c, 20), t: a.t || t, by: str(a.by, 24) };
+          });
+          state.config = clone(op.config);
+          state.asg = asg;
+          state.seedRev = +op.rev || 0;
+          pushLog(state, { t, type: 'reseed', n: Object.keys(asg).length, by, txt: str(op.txt, 140) });
+          break;
+        }
         default:
           ok = false;
       }

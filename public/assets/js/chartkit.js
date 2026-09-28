@@ -479,6 +479,7 @@ function startChartWatchdog(onRebuild,everyMs){
     const dead=[];const now=Date.now();
     document.querySelectorAll('canvas').forEach(function(cv){
       if(cv.offsetParent===null)return;                       /* pestaña oculta: no es un fallo */
+      if(cv.dataset&&cv.dataset.nochart)return;               /* canvas propio (no Chart.js): no se vigila */
       const ch=(Chart.getChart&&Chart.getChart(cv))||CHZ[cv.id]||null;
       if(!ch){dead.push(cv.id);return;}
       if(ch.width<=2||ch.height<=2){try{ch.resize()}catch(e){}

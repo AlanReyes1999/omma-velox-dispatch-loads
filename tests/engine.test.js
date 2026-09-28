@@ -7,7 +7,7 @@ const S = require('../public/assets/js/seed.js');
 
 const TZ = 'America/Mexico_City';
 const at = s => Date.parse(s);              // ISO con zona
-const NOW = at('2026-09-27T23:30:00-06:00'); // domingo por la noche, antes del prefill
+const NOW = at('2026-09-28T00:30:00-06:00'); // lunes 00:30: prefill terminando, frac a las 06:00
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, (msg || '') + ` esperado ${b} ± ${tol}, obtenido ${a}`);
 
 function model(mut, now) {
@@ -99,19 +99,22 @@ test('plan por tramo: loads/día, trucks y ritmo sostenible', () => {
   assert.equal(s1.sustainPace, null);
 });
 
-test('prefill: 30 × 20/40 y 6 × 100M repartidos entre el inicio del prefill y el lead antes del frac', () => {
-  const M = model();
+test('prefill: 30 × 20/40 y 6 × 100M repartidos entre inicio y fin del prefill', () => {
+  const M = model(st => { st.asg = {}; });
   const pf20 = M.sands['2040'].slots.filter(x => x.prefill);
   const pf100 = M.sands['100M'].slots.filter(x => x.prefill);
   assert.equal(pf20.length, 30);
   assert.equal(pf100.length, 6);
   assert.equal(M.sands['4070'].slots.filter(x => x.prefill).length, 0);
-  const PS = at('2026-09-29T14:00:00-06:00'), FS = at('2026-09-30T06:00:00-06:00');
+  const PS = at('2026-09-23T00:00:00-06:00'), PE = at('2026-09-28T03:00:00-06:00'), FS = at('2026-09-28T06:00:00-06:00');
   assert.equal(pf20[0].ab, PS);
   assert.equal(pf100[0].ab, PS);
-  pf20.forEach(x => { assert.equal(x.nb, FS); assert.ok(x.ab < FS - 345 * 60e3); });
-  // 100M: ventana 14:00 → 22:39 (06:00 − 7h21m), 6 loads → uno cada 86.5 min
-  near(pf100[1].ab - pf100[0].ab, (FS - 441 * 60e3 - PS) / 6, 1);
+  pf20.forEach(x => { assert.equal(x.nb, FS); assert.ok(x.ab < PE); });
+  near(pf100[1].ab - pf100[0].ab, (PE - PS) / 6, 1);       // ventana 23 sep 00:00 → 28 sep 03:00
+  near(pf20[1].ab - pf20[0].ab, (PE - PS) / 30, 1);
+  const noEnd = model(st => { st.asg = {}; delete st.config.schedule.prefillEnd; });   // sin fin: inicio de frac − lead
+  const q = noEnd.sands['2040'].slots.filter(x => x.prefill);
+  near(q[29].ab - q[0].ab, 29 / 30 * (FS - 345 * 60e3 - PS), 1);
 });
 
 test('40/70 arranca en la etapa 31 con 2 etapas de colchón', () => {
@@ -119,9 +122,41 @@ test('40/70 arranca en la etapa 31 con 2 etapas de colchón', () => {
   const first = M.sands['4070'].slots[0];
   assert.equal(first.pos, 30);
   assert.equal(first.stage, 31);
-  const FS = at('2026-09-30T06:00:00-06:00');
+  const FS = at('2026-09-28T06:00:00-06:00');
   near(first.nb, FS + 28 / 19 * E.DAY, 1);                  // posición 28 a 19 etapas/día
   assert.equal(first.ab, first.nb - 441 * 60e3);
+});
+
+test('punto de partida: 37 asignados, cola numerada y arena acumulada en locación', () => {
+  const M = model(null, at('2026-09-28T01:00:00-06:00'));
+  assert.equal(M.kpi.asgNeeded, 37);
+  assert.equal(M.sands['2040'].nAssignedNeeded, 30);
+  assert.equal(M.sands['100M'].nAssignedNeeded, 6);
+  assert.equal(M.sands['4070'].nAssignedNeeded, 1);
+  const needed = M.slots.filter(x => x.needed);
+  assert.deepEqual(needed.map(x => x.seq), needed.map((x, i) => i + 1));   // 1..492 sin huecos, en orden de asignación
+  assert.equal(needed[needed.length - 1].seq, 492);
+  near(needed[needed.length - 1].cumAll, needed.reduce((p, x) => p + x.w, 0), 1e-6);
+  assert.equal(M.kpi.next.id, '2040-031');                  // lo que sigue: 20/40 para la etapa 14
+  assert.equal(M.kpi.next.seq, 37);
+  assert.equal(M.kpi.next.stage, 14);
+  near(M.kpi.cov.asg, 30 * 51350 / 111000, 0.01);          // la arena asignada alcanza a la etapa 13.9 (limita 20/40)
+  assert.equal(M.well.phase, 'prefill');
+  // la carga de la etapa: cumAfter por arena y alcance después de cada load
+  const x = M.slots.find(s => s.id === '2040-031');
+  near(x.covAfter, 31 * 51350 / 111000, 0.01);
+});
+
+test('PO por arena: el capturado manda; si no, el del export más reciente', () => {
+  const base = model(st => { st.omma.loads.forEach(l => { l.po = l.s === '2040' ? 'PO-A' : 'PO-B'; }); });
+  assert.equal(base.sands['2040'].po, 'PO-A');
+  assert.equal(base.sands['2040'].poSrc, 'export');
+  assert.equal(base.sands['4070'].po, '');
+  assert.equal(base.slots.find(x => x.id === '2040-031').po, 'PO-A');
+  const man = model(st => { st.config.po = { '100M': '', '4070': 'PO-4070', '2040': 'PO-X' }; st.omma.loads.forEach(l => { l.po = 'PO-A'; }); });
+  assert.equal(man.sands['2040'].po, 'PO-X');
+  assert.equal(man.sands['2040'].poSrc, 'manual');
+  assert.equal(man.sands['4070'].po, 'PO-4070');
 });
 
 test('cobertura de etapas: 40/70 sin loads cubre hasta la 30', () => {
@@ -135,59 +170,58 @@ test('cobertura de etapas: 40/70 sin loads cubre hasta la 30', () => {
   near(M.kpi.cov.omma, 102700 / 111000, 1e-9);               // 2 loads 20/40 OMMA = 0.93 etapas
 });
 
-test('corte de entregas: lo previo al prefill es referencia de tiempos, no arena en locación', () => {
-  const M = model();                                         // corte por defecto: 29 sep 00:00
-  assert.equal(M.countFrom, at('2026-09-29T00:00:00-06:00'));
+test('corte de entregas: cuentan desde el inicio del prefill; lo anterior sólo alimenta tiempos', () => {
+  const M = model();                                         // corte por defecto: 23 sep 00:00 (inicio del prefill)
+  assert.equal(M.countFrom, at('2026-09-23T00:00:00-06:00'));
   assert.equal(M.wellLoads.length, 4);
-  assert.equal(M.jobLoads.length, 0);
-  assert.equal(M.kpi.cov.omma, 0);
-  assert.equal(M.sands['2040'].omma.reconcile.length, 0);
-  assert.equal(M.params['2040'].payload, 51350);             // el payload sí sale del extracto
+  assert.equal(M.jobLoads.length, 4);                        // los 4 del extracto son parte del prefill
+  const late = model(st => { st.config.countFrom = '2026-09-26T00:00'; });
+  assert.equal(late.jobLoads.length, 2);                     // sólo los 2 de 20/40 del 27 sep
+  assert.equal(late.params['100M'].payload, 49870);          // el payload sigue saliendo de los 4
   const all = model(st => { st.config.countFrom = ''; });
   assert.equal(all.jobLoads.length, 4);
 });
 
-test('estados: vencido, asignar ya, programado, asignado, en camino, entregado', () => {
-  const t0 = at('2026-09-29T15:30:00-06:00');                 // prefill en marcha
-  const M = model(st => {
-    st.config.countFrom = null;
-    st.asg['2040-001'] = { c: 'C2', t: at('2026-09-29T14:05:00-06:00'), by: 'AR' };
-    st.asg['2040-002'] = { c: 'OMMA', t: at('2026-09-29T14:20:00-06:00'), by: 'AR' };
-  }, t0);
+test('estados en la cola: asignado (entregado, en camino, llegó), programado, asignar ya y vencido', () => {
+  const t0 = at('2026-09-28T01:00:00-06:00');
+  const M = model(null, t0);
   const s = id => M.slots.find(x => x.id === id);
-  assert.equal(s('2040-001').status, 'eta');                  // C2, lead 5h45 aún no se cumple
-  assert.equal(s('2040-002').status, 'del');                  // OMMA casado con su entrega real
-  assert.equal(s('2040-003').status, 'now');                  // cadencia 14:41, dentro de la ventana de 2 h
-  assert.equal(s('100M-005').status, 'next');                 // 19:46
-  const late = model(null, at('2026-09-30T05:00:00-06:00'));
-  assert.equal(late.slots.find(x => x.id === '100M-001').status, 'late');
+  assert.equal(s('2040-001').status, 'del');                  // entrega OMMA casada con un load sin carrier
+  assert.equal(s('100M-002').status, 'del');
+  assert.equal(s('2040-030').status, 'eta');                  // asignado 27 sep 22:54, llega ~04:39
+  assert.equal(s('2040-031').status, 'next');                 // programado: su hora límite es 28 sep 15:15
+  near(s('2040-031').ab, at('2026-09-28T15:15:00-06:00'), 2 * 60e3);
+  assert.equal(model(null, at('2026-09-28T14:00:00-06:00')).slots.find(x => x.id === '2040-031').status, 'now');
+  const late = model(null, at('2026-09-28T20:00:00-06:00'));
+  assert.equal(late.slots.find(x => x.id === '2040-031').status, 'late');
   assert.ok(late.kpi.overdue > 0);
 });
 
-test('gap vs plan y conciliación OMMA', () => {
-  const M0 = model(st => { st.config.countFrom = null; });
-  assert.equal(M0.sands['2040'].omma.reconcile.length, 2);    // 2 entregas OMMA sin palomear
-  assert.equal(M0.sands['2040'].omma.reconcile[0].slot, '2040-001');
-  const t = at('2026-09-29T16:00:00-06:00');
-  const M = model(st => { ['2040-001', '2040-002', '100M-001'].forEach(id => { st.asg[id] = { c: 'C3', t: at('2026-09-29T14:10:00-06:00') }; }); }, t);
+test('conciliación OMMA: las entregas se casan con lo asignado sin carrier; gap vs cadencia', () => {
+  const M0 = model();
+  assert.equal(M0.sands['2040'].omma.matched, 2);
+  assert.equal(M0.sands['2040'].omma.reconcile.length, 0);    // ya están palomeados en el prefill
+  const M1 = model(st => { st.asg = {}; });
+  assert.equal(M1.sands['2040'].omma.reconcile.length, 2);    // sin palomitas: sugiere los 2 primeros
+  assert.equal(M1.sands['2040'].omma.reconcile[0].slot, '2040-001');
+  const t = at('2026-09-28T16:00:00-06:00');
+  const M = model(st => { st.asg['2040-031'] = { c: 'C3', t: at('2026-09-28T14:10:00-06:00') }; }, t);
   const due = M.slots.filter(x => x.needed && x.ab <= t).length;
   assert.equal(M.kpi.dueNow, due);
-  assert.equal(M.kpi.gap, 3 - due);
+  assert.equal(M.kpi.gap, 38 - due);
 });
 
 test('entregado estimado: OMMA sin registro sólo se estima después del corte del archivo', () => {
-  const t = at('2026-09-29T21:00:00-06:00');
-  const asg = st => { st.asg['2040-001'] = { c: 'OMMA', t: at('2026-09-29T14:05:00-06:00') };   // llega ~19:50
-                      st.asg['2040-002'] = { c: 'C2', t: at('2026-09-29T14:20:00-06:00') }; };
-  const M = model(asg, t);                                   // archivo cortado el 27 sep: no puede saberlo
-  assert.equal(M.slots.find(x => x.id === '2040-001').status, 'arr');
-  near(M.sands['2040'].estLbs, 2 * 51350, 1e-6);
-  const M2 = model(st => {                                   // archivo nuevo con corte 29 sep 22:00 sin esa entrega
+  const t = at('2026-09-28T13:00:00-06:00');
+  const asg = st => { st.asg['2040-031'] = { c: 'OMMA', t: at('2026-09-28T06:05:00-06:00') }; };   // llega ~11:50
+  const M = model(asg, t);                                   // el archivo corta el 27 sep: no puede saberlo
+  assert.equal(M.slots.find(x => x.id === '2040-031').status, 'arr');
+  const M2 = model(st => {                                   // archivo nuevo con corte 28 sep 12:30 sin esa entrega
     asg(st);
-    st.omma.loads.push({ k: 'x|1', n: 'x', s: '100M', m: 'IRONOAK', w: 50000, a: at('2026-09-29T15:00:00-06:00'), d: at('2026-09-29T22:00:00-06:00'), wl: 'Otro pozo', c: 'OMMA' });
+    st.omma.loads.push({ k: 'x|1', n: 'x', s: '100M', m: 'IRONOAK', w: 50000, a: at('2026-09-28T05:00:00-06:00'), d: at('2026-09-28T12:30:00-06:00'), wl: 'Otro pozo', c: 'OMMA' });
   }, t);
-  assert.equal(M2.slots.find(x => x.id === '2040-001').status, 'eta');   // en camino / sin registro
-  near(M2.sands['2040'].estLbs, 51350, 1e-6);                            // sólo el de Carrier 2
+  assert.equal(M2.slots.find(x => x.id === '2040-031').status, 'eta');   // en camino / sin registro
+  near(M.sands['2040'].estLbs - M2.sands['2040'].estLbs, 51350, 1e-6);   // deja de contarse como entregado
 });
 
 test('reporte de etapa real re-ancla el calendario', () => {

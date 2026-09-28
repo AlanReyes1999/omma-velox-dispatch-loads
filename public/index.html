@@ -7,6 +7,7 @@
 <title>Dispatch · asignación de loads</title>
 <meta name="description" content="Asignación de loads de frac sand por diseño de pozo — OMMA Trucking / MEDS Logistics">
 <meta name="theme-color" content="#F7F8FA">
+<meta name="application-name" content="OMMA Dispatch">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -36,7 +37,7 @@
   <div class="main">
     <header class="topbar" id="topbar">
       <div class="brand">
-        <img class="brand-logo" src="assets/img/logo-omma.png" alt="OMMA" width="79" height="21">
+        <img class="brand-logo" src="assets/img/logo-omma.svg" alt="OMMA" width="94" height="23">
         <div class="brand-tx">
           <div class="brand-t"><span class="bslash">/</span> DISPATCH TERMINAL</div>
           <div class="brand-s" id="brandSub">—</div>
@@ -46,6 +47,7 @@
         <div class="phase" id="phase"><span class="dot neutral"></span><span class="ph-t">—</span></div>
       </div>
       <div class="top-right">
+        <button class="inst" id="installBtn" type="button" hidden><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Instalar app</span></button>
         <button class="sync" id="sync" type="button" title="Estado de sincronización"><span class="sdot"></span><span class="stx">Conectando…</span></button>
         <div class="unit seg" id="unitSeg" role="group" aria-label="Unidad">
           <button type="button" data-u="loads">Loads</button><button type="button" data-u="lbs">Lbs</button><button type="button" data-u="tons">Tons</button>
@@ -65,6 +67,7 @@
     </div>
     <div id="filterBar" class="filter-bar"></div>
     <div class="warnbar" id="warnbar" hidden></div>
+    <div class="warnbar seedbar" id="seedBar" hidden></div>
 
     <main class="views" id="views">
 
@@ -80,7 +83,7 @@
           <article class="gcard panel a-teal pwell" id="pWell">
             <div class="ph"><span class="pn">01</span><h3>El pozo · espiral de etapas</h3><span class="pbadge" id="wellBadge">—</span></div>
             <div class="spiral-wrap">
-              <canvas id="spiral" aria-label="Espiral de etapas del pozo"></canvas>
+              <canvas id="spiral" data-nochart="1" aria-label="Espiral de etapas del pozo"></canvas>
               <div class="callout cl" id="coLeft"></div>
               <div class="callout cr" id="coRight"></div>
             </div>
@@ -91,7 +94,6 @@
           <div class="col">
             <article class="gcard panel a-amber" id="pNext">
               <div class="ph"><span class="pn">02</span><h3>Próximos a asignar</h3><span class="pbadge" id="nextBadge">—</span></div>
-              <div class="carrier-pick" id="cePick"></div>
               <div class="nextlist" id="nextList"></div>
               <button class="linkbtn" type="button" data-go="asignar">Ver cola completa</button>
             </article>
@@ -111,8 +113,8 @@
             <div class="ch ch-l"><canvas id="ce_gap"></canvas></div>
           </article>
           <article class="gcard panel clip a-teal" id="pCar">
-            <div class="ph"><span class="pn">05</span><h3>Carriers · loads asignados</h3><span class="pbadge" id="carBadge">—</span></div>
-            <div class="dnwrap"><div class="cw"><canvas id="ce_car"></canvas></div><div class="dnlist" id="carList"></div></div>
+            <div class="ph"><span class="pn">05</span><h3>Arena asignada · por tipo</h3><span class="pbadge" id="carBadge">—</span></div>
+            <div class="dnwrap"><div class="cw"><canvas id="ce_sand"></canvas></div><div class="dnlist" id="carList"></div></div>
           </article>
         </div>
 
@@ -131,22 +133,32 @@
           <div><div class="eyebrow">02 · Cola de asignación</div><h2 id="h-asignar">Palomea cada load al asignarlo</h2></div>
           <div class="vmeta" id="asMeta"></div>
         </div>
-        <article class="gcard panel clip a-amber" id="pCad">
-          <div class="ph"><span class="pn">01</span><h3>Cadencia · próximas 24 h</h3><span class="pbadge" id="cadBadge">—</span></div>
-          <p class="pdesc">Loads por hora según la hora límite de asignación, por arena. La primera barra junta todo lo vencido.</p>
-          <div class="ch ch-s"><canvas id="as_cad"></canvas></div>
+
+        <!-- arena en locación: se suma con cada palomita -->
+        <article class="gcard sandbar a-teal" id="sandBar" aria-live="polite">
+          <div class="sb-head">
+            <div class="sb-title">
+              <div class="sb-eyebrow">Arena en locación · asignada</div>
+              <div class="sb-total"><b id="sbTotal">0</b><small id="sbUnit">lb</small><span class="sb-of" id="sbOf">—</span></div>
+            </div>
+            <div class="sb-next" id="sbNext"></div>
+            <div class="seg sm" id="sbMode" role="group" aria-label="Vista de la barra"><button type="button" data-m="general">General</button><button type="button" data-m="arena">Por arena</button></div>
+          </div>
+          <div class="sb-body" id="sbBody"></div>
+          <div class="sb-foot" id="sbFoot"></div>
         </article>
 
         <div class="astool" id="asTool">
-          <div class="carrier-pick" id="asPick"></div>
           <div class="chips" id="asStatus"></div>
           <label class="search"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="asQuery" type="search" placeholder="Buscar load, etapa o carrier" autocomplete="off" spellcheck="false"></label>
+            <input id="asQuery" type="search" placeholder="Buscar #, load, PO, arenera o etapa" autocomplete="off" spellcheck="false"></label>
+          <button class="btn sm" type="button" id="goNext">Ir al siguiente</button>
           <div class="ascount" id="asCount"></div>
         </div>
-        <div class="asfilters" id="asFilters"></div>
-        <div class="aslist" id="asList"></div>
-        <div class="asmore"><button class="btn ghost" type="button" id="asMore" hidden>Mostrar más</button></div>
+        <div class="qwrap">
+          <div class="qhead" aria-hidden="true"><span></span><span>#</span><span>Load</span><span>Arenera</span><span>PO</span><span>Etapa</span><span>Suma en locación</span><span>Estado</span><span>Carrier</span></div>
+          <div class="qlist" id="asList" role="list"></div>
+        </div>
       </section>
 
       <!-- ========================= AVANCE ========================= -->
@@ -259,6 +271,7 @@
 </div>
 
 <!-- capas flotantes: siempre hijas de body -->
+<div class="sbmini" id="sbMini" aria-hidden="true"><div class="sbm-in"><span class="sbm-l">Arena en locación</span><b id="sbmTotal">—</b><div class="sbm-bar" id="sbmBar"></div><span class="sbm-next" id="sbmNext"></span></div></div>
 <div id="detailCard" class="detail-card"><span class="dc-close" id="dcClose">×</span><div class="dc-title" id="dcTitle"></div><div id="dcBody"></div></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <div class="modal" id="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalT"><h4 id="modalT"></h4><div id="modalB"></div><div class="modal-acts" id="modalA"></div></div></div>

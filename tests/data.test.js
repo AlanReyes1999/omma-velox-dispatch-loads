@@ -24,7 +24,8 @@ test('lee el export HTML-.xls, filtra otros carriers y arenas fuera del diseño'
   loads.forEach(l => {
     const s = S.SEED_LOADS.find(x => x.k === l.k);
     assert.ok(s, 'load ' + l.k + ' en la semilla');
-    Object.keys(s).forEach(k => assert.deepEqual(l[k], s[k], l.k + '.' + k));
+    Object.keys(s).filter(k => k !== 'po').forEach(k => assert.deepEqual(l[k], s[k], l.k + '.' + k));
+    assert.equal(l.po, 'PO-TEST');                  // el PO sí se guarda (la muestra lo trae anonimizado)
   });
   // nunca guarda el nombre del driver
   assert.ok(!JSON.stringify(loads).includes('Driver'));
@@ -45,6 +46,7 @@ test('CSV con comillas y punto y coma', () => {
 
 test('reductor: operaciones idempotentes y validadas', () => {
   const st = S.initialState();
+  st.asg = {};
   let r = R.apply(st, [
     { id: 'a', type: 'asg', slot: '2040-001', c: 'OMMA', by: 'AR' },
     { id: 'a', type: 'asg', slot: '2040-001', c: 'C2' },           // repetida: se ignora
@@ -82,4 +84,20 @@ test('reductor: init sólo siembra un store vacío', () => {
   assert.equal(r.state.config.job.totalStages, 105);
   r = R.apply(r.state, [{ id: 'i2', type: 'asg', slot: '100M-001', c: 'OMMA' }, { id: 'i3', type: 'init', state: S.initialState() }]);
   assert.ok(r.state.asg['100M-001'], 'un init tardío no borra lo asignado');
+});
+
+test('reductor: punto de partida (reseed) una sola vez por versión, conserva loads y reportes', () => {
+  const old = S.initialState();
+  delete old.seedRev; old.asg = { '2040-005': { c: 'C2', t: '2026-09-27T10:00:00Z' } };
+  old.stage = [{ id: 'r1', n: 3, t: '2026-09-28T09:00:00Z' }];
+  const op = { id: 'rs1', type: 'reseed', rev: S.REV, config: S.clone(S.DEFAULT_CONFIG), asg: S.baselineAsg(), txt: 'x' };
+  let r = R.apply(old, [op]);
+  assert.deepEqual(r.applied, ['rs1']);
+  assert.equal(Object.keys(r.state.asg).length, 37);
+  assert.equal(r.state.seedRev, S.REV);
+  assert.equal(r.state.stage.length, 1);
+  assert.equal(r.state.omma.loads.length, 4);
+  r = R.apply(r.state, [Object.assign({}, op, { id: 'rs2' })]);          // otro cliente, misma versión
+  assert.deepEqual(r.applied, []);
+  assert.equal(Object.keys(r.state.asg).length, 37);
 });

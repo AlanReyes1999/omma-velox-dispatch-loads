@@ -1,6 +1,6 @@
 /* OMMA · Velox dispatch — lectura del export de loads de OMMA.
    Formatos: el .xls que en realidad es una tabla HTML (así sale del sistema), .xlsx/.xls binario
-   (SheetJS, se carga sólo si hace falta) y .csv/.tsv. Nunca guarda el nombre del driver. */
+   (SheetJS, se carga sólo si hace falta) y .csv/.tsv. Nunca guarda el nombre del driver. El PO sí: dice a despacho contra qué orden asignar. */
 (function (root, factory) {
   const api = factory(root);
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -79,7 +79,8 @@
     dest: ['atdestinationconsumedtime', 'timeatdestination', 'destinationtime', 'unloadtime', 'atdestination'],
     acc: ['accepted', 'acceptedat', 'accepteddate', 'acceptedtime', 'assigned', 'dispatched'],
     del: ['delivered', 'deliveredat', 'delivereddate', 'deliveredtime', 'completed', 'completedat'],
-    well: ['well', 'wellname', 'destination', 'pad', 'location', 'pozo']
+    well: ['well', 'wellname', 'destination', 'pad', 'location', 'pozo'],
+    po: ['po', 'ponumber', 'pono', 'purchaseorder', 'ordendecompra']
   };
   function mapHeaders(headers) {
     const H = headers.map(hnorm);
@@ -157,7 +158,8 @@
         k, n, p: String(prodRaw).slice(0, 60), s, m, t: String(termRaw).slice(0, 80),
         mi: num(get(r, 'miles')), tr: String(get(r, 'truck') || '').slice(0, 20), w: Math.round(w),
         tm: E.parseDuration(get(r, 'term')), tx: E.parseDuration(get(r, 'transit')), td: E.parseDuration(get(r, 'dest')),
-        a, d, wl: wl.slice(0, 80), c: carrierRaw ? String(carrierRaw).slice(0, 30) : 'OMMA'
+        a, d, wl: wl.slice(0, 80), c: carrierRaw ? String(carrierRaw).slice(0, 30) : 'OMMA',
+        po: String(get(r, 'po') || '').trim().slice(0, 40)
       });
     }
     rep.kept = out.length;

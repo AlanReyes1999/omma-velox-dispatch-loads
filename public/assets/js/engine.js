@@ -336,6 +336,7 @@
     const fileTo = stats.range ? stats.range.to : null;    // corte del archivo de loads OMMA
     const P = resolveParams(cfg, stats);
     const PS = parseWall(cfg.schedule && cfg.schedule.prefillStart, tz);
+    const PE = parseWall(cfg.schedule && cfg.schedule.prefillEnd, tz);   // fin del prefill (opcional)
     const FS = sc.fracStart;
     const buffer = Math.max(0, +cfg.bufferStages || 0);
     const alertMs = Math.max(0, +cfg.alertHours || 0) * HOUR;
@@ -350,6 +351,9 @@
     /* entregas OMMA a este pozo; cuentan como arena del diseño sólo las posteriores al corte */
     const wellLoads = loads.filter(l => l.s && tb.prefix[l.s] && isJobLoad(l, cfg));
     const jobLoads = wellLoads.filter(l => !countFrom || (l.d || l.a) >= countFrom);
+    /* PO por arena: el capturado en el diseño manda; si no hay, el del load más reciente del export */
+    const poCfg = cfg.po || {}, poDet = {};
+    wellLoads.slice().sort((a, b) => (a.d || a.a || 0) - (b.d || b.a || 0)).forEach(l => { if (l.po) poDet[l.s] = String(l.po); });
 
     /* asignaciones por arena */
     const asgBySand = {};
@@ -369,14 +373,17 @@
       const asgList = (asgBySand[s] || []).sort((a, b) => a.k - b.k);
       const asgMap = new Map(asgList.map(a => [a.k, a]));
       const maxK = asgList.length ? asgList[asgList.length - 1].k : 0;
-      const trackedK = asgList.filter(a => tracked.includes(a.rec.c)).map(a => a.k);
+      /* las entregas OMMA se casan, en orden, con lo asignado a OMMA o sin carrier (despacho no
+         siempre captura el carrier: un load sin carrier puede ser de OMMA) */
+      const trackedK = asgList.filter(a => tracked.includes(a.rec.c) || !a.rec.c).map(a => a.k);
+      const ommaK = asgList.filter(a => tracked.includes(a.rec.c)).length;
       const del = jobLoads.filter(l => l.s === s).sort((a, b) => (a.d || a.a) - (b.d || b.a));
       const match = new Map();
       const nm = Math.min(trackedK.length, del.length);
       for (let i = 0; i < nm; i++) match.set(trackedK[i], del[i]);
       const unmatched = del.slice(nm);
       const prefillN = Math.max(0, Math.round(+((cfg.prefill || {})[s]) || 0));
-      const pfEnd = FS - pr.leadMs;
+      const pfEnd = PE != null ? PE : FS - pr.leadMs;
       const pfWin = (PS != null && FS != null) ? pfEnd - PS : 0;
       if (prefillN > 0 && R > 0 && !(pfWin > 0)) {
         warnings.push({ lvl: 'warn', txt: 'Prefill ' + sd.label + ': la ventana prefill → inicio de frac es menor al lead time (' + fmtDur(pr.leadMin) + '). Se asigna todo al abrir el prefill.' });
@@ -420,6 +427,7 @@
         const slot = {
           id: s + '-' + String(k).padStart(3, '0'), s, k, label: sd.label, mine: sd.mine,
           needed, prefill: isPre, pos, stage, w, cumBefore: before, cumAfter: cum,
+          covAfter: needed ? posOf(prefix, N, cum) : N, seq: null, cumAll: null,
           nb, ab, hard, from, eta: a ? a.t + pr.leadMs : null,
           asg: a ? a.rec : null, asgT: a ? a.t : null, carrier: a ? a.rec.c : null,
           delivered: dl, status, day: sh.day, shift: sh.shift, shiftKey: sh.key, shiftStart: sh.start
@@ -449,12 +457,16 @@
         nExtra: list.filter(x => !x.needed).length,
         asgLbs, ommaLbs, estLbs, estN,
         cov: { asg: posOf(prefix, N, asgLbs), est: posOf(prefix, N, estLbs), omma: posOf(prefix, N, ommaLbs) },
-        omma: { assigned: trackedK.length, delivered: del.length, matched: nm, pending: trackedK.length - nm, unmatched, reconcile },
+        omma: { assigned: ommaK, pool: trackedK.length, delivered: del.length, matched: nm, pending: trackedK.length - nm, unmatched, reconcile },
+        po: poCfg[s] ? String(poCfg[s]) : (poDet[s] || ''), poSrc: poCfg[s] ? 'manual' : (poDet[s] ? 'export' : null),
         slots: list
       };
     }
     slots.sort((a, b) => a.ab - b.ab || a.s.localeCompare(b.s) || a.k - b.k);
     Object.keys(asgBySand).forEach(s => asgBySand[s].forEach(a => { if (!a.used) invalid.push(a.id); }));
+    /* orden de asignación: número consecutivo y arena acumulada en locación a lo largo de la cola */
+    let seq = 0, cumAll = 0;
+    slots.forEach(x => { if (!x.needed) return; seq++; cumAll += x.w; x.seq = seq; x.cumAll = cumAll; x.po = sands[x.s].po; });
 
     /* ---------- KPIs ---------- */
     const needed = slots.filter(x => x.needed);
