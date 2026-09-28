@@ -253,9 +253,9 @@ function uniq(rows,key){const s=new Set();(rows||[]).forEach(function(r){
 /* groupBy agrupa PRIMERO y evalúa la medida sobre cada subconjunto:
    los ratios (turn rate, MPG, eficiencia) sólo salen correctos así — nunca sumar ni promediar ratios. */
 function groupBy(dim,measure,rows,opts){
-  const d=MODEL.dims[dim];if(!d)throw new Error('dimensión no definida: '+dim);
+  const d=MODEL.dims[dim];if(!d)throw new Error('undefined dimension: '+dim);
   const m=(typeof measure==='function')?measure:MODEL.measures[measure];
-  if(!m)throw new Error('medida no definida: '+measure);
+  if(!m)throw new Error('undefined measure: '+measure);
   const o=opts||{},b=new Map();
   (rows||rowsF(dim)).forEach(function(r){const k=d(r);if(k==null||k==='')return;
     if(!b.has(k))b.set(k,[]);b.get(k).push(r)});
@@ -289,16 +289,18 @@ function activeFilters(){return Object.keys(MODEL.dims).filter(function(k){
   return state[k]!=='all'&&state[k]&&state[k].size})}
 function clearFilters(){Object.keys(MODEL.dims).forEach(function(k){state[k]='all';syncChips(k)});
   renderFilterBar();RENDER_ALL();}
+/* los valores de filtro pueden venir de texto libre (nombres de carrier): siempre escapados */
+function ckEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 /* Barra de filtros activos — OBLIGATORIA: <div id="filterBar" class="filter-bar"></div> */
 function renderFilterBar(sel){const bar=document.querySelector(sel||'#filterBar');if(!bar)return;
   const act=activeFilters();
   if(!act.length){bar.innerHTML='';bar.classList.remove('show');return;}
   const lbl=function(k){return MODEL.dims[k].label||k};
-  bar.innerHTML='<span class="fb-label">Filtros activos</span>'+
+  bar.innerHTML='<span class="fb-label">Active filters</span>'+
     act.map(function(k){return Array.from(state[k]).map(function(v){
-      return '<button class="fpill" data-dim="'+k+'" data-v="'+v+'">'+lbl(k)+': <b>'+v+'</b><i>×</i></button>'
+      return '<button type="button" class="fpill" data-dim="'+ckEsc(k)+'" data-v="'+ckEsc(v)+'" aria-label="Remove filter '+ckEsc(lbl(k))+': '+ckEsc(v)+'">'+ckEsc(lbl(k))+': <b>'+ckEsc(v)+'</b><i aria-hidden="true">×</i></button>'
     }).join('')}).join('')+
-    '<button class="fclear">Limpiar todo</button>';
+    '<button type="button" class="fclear">Clear all</button>';
   bar.classList.add('show');
   bar.querySelectorAll('.fpill').forEach(function(p){p.addEventListener('click',function(){
     crossFilter(p.dataset.dim,p.dataset.v)})});
@@ -307,7 +309,7 @@ function renderFilterBar(sel){const bar=document.querySelector(sel||'#filterBar'
 function buildChips(container,items,key,renderAll){
   container.setAttribute('data-chips',key);
   container.innerHTML=['all'].concat(items).map(function(v){
-    return '<button class="chip'+(v==='all'?' all active':'')+'" data-v="'+v+'">'+(v==='all'?'Todas':v)+'</button>'}).join('');
+    return '<button type="button" class="chip'+(v==='all'?' all active':'')+'" data-v="'+ckEsc(v)+'">'+(v==='all'?'All':ckEsc(v))+'</button>'}).join('');
   container.querySelectorAll('.chip').forEach(function(chip){chip.addEventListener('click',function(){
     const v=chip.dataset.v;
     if(v==='all'){state[key]='all';syncChips(key);renderFilterBar();(renderAll||RENDER_ALL)();}
@@ -347,10 +349,11 @@ Chart.register(EndLabelPlugin);
 /* ==================== Detail Card flotante (scatter / filas) ====================
    Requiere <div id="detailCard" class="detail-card"><span class="dc-close">×</span>
    <div class="dc-title" id="dcTitle"></div><div id="dcBody"></div></div> */
-function showDetail(evt,title,rows){const card=document.getElementById('detailCard');if(!card)return;
+function showDetail(evt,title,rows,foot){const card=document.getElementById('detailCard');if(!card)return;
   document.getElementById('dcTitle').textContent=title;
   document.getElementById('dcBody').innerHTML=rows.map(function(r){
-    return '<div class="dc-row"><span>'+r[0]+'</span><b'+(r[2]?' style="color:'+r[2]+'"':'')+'>'+r[1]+'</b></div>'}).join('');
+    return '<div class="dc-row"><span>'+r[0]+'</span><b'+(r[2]?' style="color:'+r[2]+'"':'')+'>'+r[1]+'</b></div>'}).join('')+
+    (foot?'<div class="dc-acts">'+foot+'</div>':'');
   /* v5 · CONTENEDOR. Un ancestro con transform, filter o will-change convierte
      position:fixed en position:absolute respecto de ese ancestro (spec de CSS).
      .gcard hace translateY(-2px) en hover — justo cuando se hace clic —, así que una
@@ -401,13 +404,13 @@ function scRow(k,v,cls){return '<div class="scrow"><span>'+k+'</span><span'+(cls
 function gapTracker(labels,cumActual,cumTarget,hex,totalPlan){hex=hex||OMMA.teal;
   return{
     datasets:[
-      {type:'line',label:'Acumulado',data:cumActual,borderColor:hex,
+      {type:'line',label:'Cumulative',data:cumActual,borderColor:hex,
        backgroundColor:function(c){return c.chart.chartArea?oGrad(c.chart.ctx,c.chart.chartArea,hex,.16,0):oA(hex,.1)},
        fill:true,pointRadius:0,pointHoverRadius:7},
       {type:'line',label:'Target',data:cumTarget,borderColor:OMMA.ink,borderDash:[6,4],borderWidth:1.8,pointRadius:0}],
     tooltip:{callbacks:{afterBody:function(items){const i=items[0].dataIndex;
       const a=cumActual[i]||0,t=cumTarget[i]||0,gap=a-t;
-      const out=[SEP,'Gap acumulado: '+(gap>=0?'+':'')+fmt.int(gap)+(t?' ('+((gap/Math.abs(t))*100).toFixed(1)+'%)':'')];
+      const out=[SEP,'Cumulative gap: '+(gap>=0?'+':'')+fmt.int(gap)+(t?' ('+((gap/Math.abs(t))*100).toFixed(1)+'%)':'')];
       if(totalPlan)out.push('Remaining: '+fmt.int(Math.max(0,totalPlan-a)));
       return out;}}}};}
 
@@ -635,7 +638,7 @@ function metricExplorer(cfg){
        maxBarThickness:single?60:24,order:3},
       {type:'line',label:'Target',data:tgts,borderColor:OMMA.ink,borderDash:[5,4],borderWidth:1.8,
        pointRadius:single?4:0,tension:.25,order:1,endLabel:false},
-      {type:'line',label:'Media anual',data:rows.map(()=>annMean),borderColor:OMMA.lavender,
+      {type:'line',label:'Annual mean',data:rows.map(()=>annMean),borderColor:OMMA.lavender,
        borderDash:[2,3],borderWidth:1.6,pointRadius:0,order:2,endLabel:false}]},
      options:{scales:{x:gX,y:gYf(d.axis)},
        plugins:{crosshair:single?false:{},endLabel:{enabled:true,fmt:d.fmt},
@@ -645,20 +648,20 @@ function metricExplorer(cfg){
            rows:i=>{const r=rows[i],v=d.val(r),t=d.tgt(r);
              const dt=t?(v-t)/Math.abs(t):0, dm=annMean?(v-annMean)/Math.abs(annMean):0;
              return['vs target ('+d.fmt(t)+'): '+fmt.pct1(Math.abs(dt)*100)+' '+
-                     (d.better==='high'?(v>=t?'arriba':'abajo'):(v<=t?'debajo':'encima')),
-                    'vs media anual: '+fmt.pct1(Math.abs(dm)*100)+' '+(v>annMean?'arriba':'abajo')];}})},
+                     (d.better==='high'?(v>=t?'above':'below'):(v<=t?'below':'above')),
+                    'vs annual mean: '+fmt.pct1(Math.abs(dm)*100)+' '+(v>annMean?'above':'below')];}})},
        onClick:cfg.onClick}});
     if(box){
       const onT=Math.abs(tAvg?(pAvg-tAvg)/Math.abs(tAvg):0)<.02;    /* banda muerta ±2% = "EN META" */
       const ok=meets(pAvg,tAvg);
       const col=onT?'#D4A52E':(ok?OMMA.success:OMMA.danger);
-      const txt=onT?'EN META':(d.better==='high'?(pAvg>tAvg?'SOBRE META':'BAJO META'):(pAvg>tAvg?'SOBRE LÍMITE':'BAJO LÍMITE'));
+      const txt=onT?'ON TARGET':(d.better==='high'?(pAvg>tAvg?'ABOVE TARGET':'BELOW TARGET'):(pAvg>tAvg?'ABOVE LIMIT':'BELOW LIMIT'));
       const dm=annMean?(pAvg-annMean)/Math.abs(annMean):0;
       box.innerHTML=
-        '<div class="ovme-chip"><div class="l">Promedio periodo · '+d.lbl+'</div><div class="v num">'+d.fmt(pAvg)+'</div><div class="s">'+rows.length+' periodos</div></div>'+
+        '<div class="ovme-chip"><div class="l">Period average · '+d.lbl+'</div><div class="v num">'+d.fmt(pAvg)+'</div><div class="s">'+rows.length+' periods</div></div>'+
         '<div class="ovme-chip"><div class="l">Target</div><div class="v num">'+d.fmt(tAvg)+'</div><div class="s"><span class="ovme-stat" style="background:'+col+'">'+txt+'</span></div></div>'+
-        '<div class="ovme-chip"><div class="l">Media anual</div><div class="v num">'+d.fmt(annMean)+'</div><div class="s">'+
-          (Math.abs(dm)<.02?'● en la media':((dm>0?'▲ ':'▼ ')+fmt.pct1(Math.abs(dm)*100)))+'</div></div>';}
+        '<div class="ovme-chip"><div class="l">Annual mean</div><div class="v num">'+d.fmt(annMean)+'</div><div class="s">'+
+          (Math.abs(dm)<.02?'● at the mean':((dm>0?'▲ ':'▼ ')+fmt.pct1(Math.abs(dm)*100)))+'</div></div>';}
   }
   if(seg)seg.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){cur=b.dataset.m;paint();});});
   paint();

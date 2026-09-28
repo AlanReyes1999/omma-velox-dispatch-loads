@@ -1,10 +1,10 @@
 {
   "id": "./",
-  "name": "OMMA Dispatch · asignación de loads",
+  "name": "OMMA Dispatch · load assignment",
   "short_name": "OMMA Dispatch",
-  "description": "Cola de asignación de loads de frac sand por diseño de pozo",
-  "lang": "es-MX",
-  "start_url": "./#asignar",
+  "description": "Frac sand load assignment queue by well design",
+  "lang": "en-US",
+  "start_url": "./#assign",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
@@ -18,8 +18,8 @@
     { "src": "assets/img/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
   "shortcuts": [
-    { "name": "Asignar loads", "short_name": "Asignar", "url": "./#asignar", "icons": [{ "src": "assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
-    { "name": "Centro de despacho", "short_name": "Centro", "url": "./#centro", "icons": [{ "src": "assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
-    { "name": "Avance del pozo", "short_name": "Avance", "url": "./#avance", "icons": [{ "src": "assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+    { "name": "Assign loads", "short_name": "Assign", "url": "./#assign", "icons": [{ "src": "assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Dispatch command center", "short_name": "Command", "url": "./#command", "icons": [{ "src": "assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Well progress", "short_name": "Progress", "url": "./#progress", "icons": [{ "src": "assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
   ]
 }

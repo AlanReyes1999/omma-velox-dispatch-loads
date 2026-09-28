@@ -2,7 +2,7 @@ node_modules/
 .netlify/
 .DS_Store
 *.log
-# exports crudos de loads: traen nombres de drivers, no se suben a un repo público
+# raw load exports carry driver names: never commit them to a public repo
 *.xls
 *.xlsx
 *.csv

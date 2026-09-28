@@ -1,10 +1,10 @@
-/* OMMA · Velox dispatch — estado compartido de despacho.
-   GET  /api/state  → estado completo (cacheado en el CDN de Netlify, se purga en cada escritura)
-   POST /api/state  → {ops:[…]} aplica operaciones con escritura condicional por etag.
+/* OMMA · Velox dispatch — shared dispatch state.
+   GET  /api/state  → full state (cached on the Netlify CDN, purged on every write)
+   POST /api/state  → {ops:[…]} applies operations with an etag-conditional write.
 
-   Por qué el caché: 6–8 dispatchers consultando cada 15 s durante un frac 24/7 serían cientos
-   de miles de invocaciones al mes. Con el CDN, las consultas sin cambios no invocan la función;
-   cada escritura purga el tag y la siguiente consulta trae el estado nuevo. */
+   Why the cache: 6–8 dispatchers polling every 15 s through a 24/7 frac would be hundreds of
+   thousands of invocations a month. With the CDN, unchanged polls never invoke the function;
+   every write purges the tag and the next poll brings the new state. */
 import { getStore } from '@netlify/blobs';
 import { purgeCache } from '@netlify/functions';
 import Reducer from '../../public/assets/js/reducer.js';
@@ -22,7 +22,7 @@ function json(body, status = 200, headers = {}) {
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-/* Núcleo testeable: recibe el store y la función de purga inyectados. */
+/* Testable core: the store and the purge function are injected. */
 export async function handle(req, store, purge) {
   if (req.method === 'GET') {
     const cur = await store.getWithMetadata(KEY, { type: 'json' });
@@ -38,18 +38,18 @@ export async function handle(req, store, purge) {
 
   if (req.method === 'POST') {
     const raw = await req.text();
-    if (raw.length > MAX_BODY) return json({ ok: false, error: 'La carga es demasiado grande' }, 413);
+    if (raw.length > MAX_BODY) return json({ ok: false, error: 'Payload too large' }, 413);
     let body;
-    try { body = JSON.parse(raw); } catch { return json({ ok: false, error: 'JSON inválido' }, 400); }
+    try { body = JSON.parse(raw); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
     const ops = Array.isArray(body && body.ops) ? body.ops.slice(0, 300) : [];
-    if (!ops.length) return json({ ok: false, error: 'Sin operaciones' }, 400);
+    if (!ops.length) return json({ ok: false, error: 'No operations' }, 400);
 
     for (let attempt = 0; attempt < 7; attempt++) {
       const cur = await store.getWithMetadata(KEY, { type: 'json' });
       const base = cur ? cur.data : null;
       const { state, applied } = Reducer.apply(base, ops);
       if (!state.config) {
-        return json({ ok: false, error: 'El estado compartido no está inicializado' }, 409);
+        return json({ ok: false, error: 'Shared state is not initialized' }, 409);
       }
       if (!applied.length && base) {
         return json({ ok: true, v: base.v || 0, state: base, applied });
@@ -60,15 +60,15 @@ export async function handle(req, store, purge) {
         ? await store.setJSON(KEY, state, { onlyIfMatch: cur.etag })
         : await store.setJSON(KEY, state, { onlyIfNew: true });
       if (res && res.modified) {
-        try { await purge(); } catch (e) { console.warn('[state] purga de caché falló:', e && e.message); }
+        try { await purge(); } catch (e) { console.warn('[state] cache purge failed:', e && e.message); }
         return json({ ok: true, v: state.v, state, applied });
       }
-      await sleep(40 + Math.random() * 160 * (attempt + 1));   // otro dispatcher escribió primero
+      await sleep(40 + Math.random() * 160 * (attempt + 1));   // another dispatcher wrote first
     }
-    return json({ ok: false, error: 'Conflicto de escritura, reintenta' }, 409);
+    return json({ ok: false, error: 'Write conflict, retry' }, 409);
   }
 
-  return json({ ok: false, error: 'Método no permitido' }, 405, { allow: 'GET, POST' });
+  return json({ ok: false, error: 'Method not allowed' }, 405, { allow: 'GET, POST' });
 }
 
 export default async (req) => {

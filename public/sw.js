@@ -1,9 +1,9 @@
 /* OMMA Dispatch — service worker.
-   Hace que la app instalada abra al instante y siga abriendo sin señal en campo.
-   · Código y página: red primero (si hay red siempre llega la versión más nueva), caché de respaldo.
-   · Fuentes, íconos y librerías: caché primero (no cambian).
-   · El estado compartido (/api/state) nunca pasa por aquí: siempre va al servidor. */
-const CACHE = 'ovd-shell-v4';
+   Makes the installed app open instantly and keep opening with no signal in the field.
+   · Code and page: network first (with a network the newest version always arrives), cache as backup.
+   · Fonts, icons and libraries: cache first (they do not change).
+   · The shared state (/api/state) never goes through here: it always goes to the server. */
+const CACHE = 'ovd-shell-v5';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'assets/css/fonts.css', 'assets/css/tokens-pastel.css', 'assets/css/components-cards.css', 'assets/css/motion.css', 'assets/css/app.css',
@@ -24,7 +24,7 @@ function put(req, res) {
   if (res && res.ok && res.type === 'basic') { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
   return res;
 }
-/* red con tiempo límite: con señal mala no se queda colgada la apertura */
+/* network with a time limit: a bad signal never leaves the app hanging on open */
 function network(req, ms) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('timeout')), ms);

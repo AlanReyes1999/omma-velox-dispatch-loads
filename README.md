@@ -1,106 +1,121 @@
-# OMMA · Velox Dispatch — asignación de loads por diseño de pozo
+# OMMA · Velox Dispatch — load assignment by well design
 
-App (escritorio y celular, instalable) para que despacho asigne loads de frac sand en el orden que pide el diseño del pozo. La cola es una sola secuencia numerada: cada palomita cuenta el load como arena en locación y la barra de arriba lo suma, general o por arena. La app recalcula todo con cada palomita, con cada reporte de etapa del frac crew y con cada export de loads de OMMA que se suba.
+App (desktop and phone, installable) for dispatch to assign frac sand loads in the order the well design needs them. The queue is a single numbered sequence where the load number is the order of assignment: the loads already assigned are #1–#37 and **#38 is next**. Each check mark counts the load as sand on location, and the bar on top adds it up, overall or by sand. The app recalculates everything with every check mark, every stage report from the frac crew and every OMMA loads export that gets uploaded.
 
-Pozo inicial: **Riley Horned Frog 5** (Velox), 105 etapas, 3 arenas:
+Starting well: **Riley Horned Frog 5** (Velox), 105 stages, 3 sands:
 
-| Arena | Arenera | Etapas 1–30 | Etapas 31–105 | Prefill |
-|---|---|---|---|---|
-| 100 Mesh | Iron Oak 115 | 10,000 lb/et | 90,000 lb/et · 14 trucks | 6 loads |
-| 40/70 | Iron Oak 115 | — | 169,000 lb/et · 26 trucks | — |
-| 20/40 | IronHorse | 111,000 lb/et | 20,000 lb/et · 2 trucks | 30 loads |
+| Sand | Mine | PO | Stages 1–30 | Stages 31–105 | Prefill |
+|---|---|---|---|---|---|
+| 100 Mesh | Iron Oak 115 | SPA00021226 | 10,000 lb/stg | 90,000 lb/stg · 14 trucks | 6 loads |
+| 40/70 | Iron Oak 115 | PO-24918 | — | 169,000 lb/stg · 26 trucks | — |
+| 20/40 | IronHorse | PO-1236 | 111,000 lb/stg | 20,000 lb/stg · 2 trucks | 30 loads |
 
-Total del pozo: **24,555,000 lb (12,277.5 t) ≈ 492 loads** con los payloads del extracto de OMMA.
+Well total: **24,555,000 lb (12,277.5 tons) ≈ 492 loads** with the payloads from the OMMA extract.
 
-Punto de partida (28 sep 2026): prefill del 23 sep al 28 sep 03:00, inicio del pozo 28 sep 06:00 y **37 loads ya asignados** (30 de 20/40, 6 de 100 Mesh y 1 de 40/70). Lo que sigue es el **#37: 20/40 · 031 para la etapa 14**.
+Starting point (Sep 28, 2026): prefill from Sep 23 6:00 PM to Sep 28 3:00 AM, well start Sep 28 6:00 AM and **37 loads already assigned** (30 × 20/40, 6 × 100 Mesh and one 40/70 that went out early by mistake, which is #37). Next up: **#38 · 20/40 · 031 for stage 14**.
 
-## Publicar en Netlify (recomendado: todos ven lo mismo)
+**Final counts:** at **80% of loads assigned** (load #394 of 492) the well enters final counts and load assignments have to be confirmed with the frac crew. The Assign tab marks the 80% line on the bar and in the queue; the load that reaches 80% asks for that confirmation first (with the dispatcher's initials) and logs who confirmed and when, for all dispatch to see. Checking off OMMA deliveries in Progress asks the same way, and if assigned loads fall back below the line, crossing it again asks again (Undo does not). The percentage is editable in Plan.
 
-1. En [app.netlify.com](https://app.netlify.com): **Add new site → Import an existing project → GitHub** y elegir `AlanReyes1999/omma-velox-dispatch-loads`.
-2. No hay que llenar nada: `netlify.toml` ya indica la carpeta `public` y la función. Clic en **Deploy**.
-3. Compartir con despacho la URL que da Netlify (`https://<nombre>.netlify.app`). Se puede cambiar el nombre en *Site configuration → Change site name*.
+## Publish on Netlify (recommended: everyone sees the same thing)
 
-El estado compartido (palomitas, reportes de etapa, diseño y loads OMMA) vive en **Netlify Blobs**, que se activa solo con el primer deploy. No hay base de datos que configurar.
+1. At [app.netlify.com](https://app.netlify.com): **Add new site → Import an existing project → GitHub** and pick `AlanReyes1999/omma-velox-dispatch-loads`.
+2. Nothing to fill in: `netlify.toml` already sets the `public` folder and the function. Click **Deploy**.
+3. Share the Netlify URL (`https://<name>.netlify.app`) with dispatch. The name can be changed in *Site configuration → Change site name*.
 
-> Arrastrar la carpeta a Netlify (*drag & drop*) **no** publica la función: la app abriría en modo local. Usa "Import from Git".
+The shared state (check marks, stage reports, design and OMMA loads) lives in **Netlify Blobs**, which turns on by itself with the first deploy. There is no database to set up.
 
-## Instalar como app
+> Dragging the folder into Netlify (*drag & drop*) does **not** publish the function: the app would open in local mode. Use "Import from Git".
 
-Ya publicada en Netlify, la app se instala como cualquier aplicación y abre directo en la cola de asignación:
+A site that was already running the previous version updates itself on the next deploy. The shared state decides how: if nobody has worked since its last starting point it loads this one whole (the same 37 loads); if someone has, it only updates the prefill start, the POs and the final counts rule and **keeps every check mark**. An older state with work asks a person to confirm before replacing anything.
 
-- **Windows o Mac (Chrome o Edge):** botón **Instalar app** arriba a la derecha, o el ícono de instalar en la barra de direcciones. Queda en el menú de inicio / Launchpad y abre en su propia ventana.
-- **Android (Chrome):** botón **Instalar app** o menú → **Instalar app**. Queda en el cajón de apps.
-- **iPhone / iPad (Safari):** **Compartir → Agregar a pantalla de inicio**.
+## Install as an app
 
-Una vez instalada abre al instante y sigue abriendo sin señal (lo que se palomee sin red se envía al volver). Las actualizaciones llegan solas al publicar en Netlify.
+Once it is on Netlify, the app installs like any other app and opens straight into the assignment queue:
 
-### Modo local
+- **Windows or Mac (Chrome or Edge):** **Install app** button at the top right, or the install icon in the address bar. It lands in the Start menu / Launchpad and opens in its own window.
+- **Android (Chrome):** **Install app** button, or menu → **Install app**. It lands in the app drawer.
+- **iPhone / iPad (Safari):** **Share → Add to Home Screen**.
 
-Si la app se abre sin la función (GitHub Pages o el archivo `index.html` en disco), trabaja en **modo local**: todo se guarda sólo en ese navegador y el indicador de arriba dice "Modo local". Sirve para revisar el plan, no para que varios dispatchers palomeen juntos.
+Once installed it opens instantly and keeps opening with no signal (anything checked off offline is sent when the network is back). Updates arrive on their own with every Netlify deploy.
 
-## Cómo se usa
+### Local mode
 
-| Vista | Para qué |
+If the app opens without the function (GitHub Pages, or the `index.html` file from disk), it works in **local mode**: everything is saved in that browser only and the indicator at the top says "Local mode". It is good for reviewing the plan, not for several dispatchers checking loads off together.
+
+## How to use it
+
+| View | What for |
 |---|---|
-| **Centro** | Qué asignar ahora: próximos loads con hora límite, gap vs cadencia, espiral de etapas del pozo, loads en camino y reparto por carrier. |
-| **Asignar** | La cola completa en el orden en que hay que asignar, numerada del 1 al 492, sin días ni horas. Columnas: #, load, arenera, PO, etapa, suma en locación, estado (programado / asignado / vencido) y carrier (opcional). Un clic en la casilla asigna el load y lo suma a la barra de arena en locación (general o por arena); se puede deshacer. |
-| **Avance** | Hasta qué etapa alcanza la arena (asignada, entregada estimada u OMMA real) y la etapa real vs plan. Aquí se registra la etapa que reporta el frac crew: toda la cola se re-ancla a esa etapa real. |
-| **Plan** | Loads por día, trucks requeridos vs plan y editor del diseño (tramos, lbs por etapa, ritmo, prefill, carriers, horarios). Guardar aplica para todo despacho. |
-| **Areneras** | Payload, tiempos de carga, tránsito y locación por arenera, y la carga del export de loads de OMMA (.xls, .xlsx o .csv). |
+| **Command** | What to assign now: next loads, gap vs cadence, the well's stage spiral, loads en route and the split by sand. |
+| **Assign** | The full queue in the order loads have to be assigned, numbered 1–492, with no days or hours. Columns: #, load, mine, PO, stage, running total on location, status (scheduled / assigned / overdue) and carrier (optional). |
+| **Progress** | How far the sand covers (assigned, estimated delivered or actual OMMA) and the actual stage vs plan. The stage the frac crew reports is logged here: the whole queue re-anchors to it. |
+| **Plan** | Loads per day, trucks required vs plan and the design editor (segments, lbs per stage, pace, prefill, POs, final counts %, carriers, schedule). Saving applies to all dispatch. |
+| **Mines** | Payload, load, transit and on-location times per mine, the PO of each sand, and the upload of the OMMA loads export (.xls, .xlsx or .csv). |
 
-Filtros globales (arena y carrier) y la unidad (loads, lbs o toneladas) aplican a todas las vistas. Clic en una barra, dona o tarjeta filtra el tablero; clic en la leyenda prende y apaga capas.
+Global filters (sand and carrier) and the unit (loads, lbs or tons) apply to every view. Clicking a bar, doughnut slice or card filters the board; clicking a legend item toggles that layer.
 
-## Cómo calcula
+### Assign tab
 
-- **Loads por arena** = lbs del diseño ÷ payload promedio de su arenera (del export de OMMA), redondeado hacia arriba.
-- **En locación**: cada load se necesita cuando el pozo llega a la etapa donde empieza a consumirse su arena, menos el colchón (2 etapas).
-- **Orden de la cola** = hora en locación − lead time de la arenera (mediana de *Accepted → Delivered*: Iron Oak 7h 21m, IronHorse 5h 45m). Por eso Iron Oak se adelanta a IronHorse para la misma etapa. La cola no muestra horas: sólo el orden y el número.
-- **Suma en locación**: arena acumulada al asignar hasta ese load (total y de su arena). La barra de arriba suma lo asignado de verdad y dice hasta qué etapa alcanza.
-- **Prefill**: los 36 loads se reparten parejo entre el inicio y el fin del prefill.
-- **Estados en la cola**: *Programado*, *Asignado* y *Vencido* (la etapa ya lo necesitaba y sigue sin asignar).
-- **PO**: el que se capture en Plan; si está vacío, el del export de OMMA más reciente de esa arena.
-- **Calendario**: sin reportes usa el inicio de frac y el ritmo del diseño; con el primer reporte de etapa se re-ancla a la etapa real.
-- **Trucks requeridos** = loads/día ÷ loads por truck al día (2 para Iron Oak, del plan; 20/40 se estima con el ciclo de IronHorse).
+- **One click on the check box** assigns the load and adds it to the sand-on-location bar; clicking again removes it. Every action has **Undo** in the notice, and **Ctrl/⌘ + Z** undoes the last one.
+- **Shift + click** a check box assigns every load from the next one up to that load, in queue order (one confirmation, one undo).
+- **Click a row** for its detail: mine, PO, stage, running total, how far that sand covers, who assigned it and when, plus its actions (assign, assign up to here, remove).
+- The loads already assigned **fold** at the top of the queue ("37 assigned loads hidden · Show") so the list starts at the next load. Loads assigned during the session stay in view.
+- The bar switches between **Overall** and **By sand**; clicking a sand filters the queue and hovering shows its numbers and PO.
+- Keyboard: **N** next load · **Space / Enter** check · **↑ ↓** move between loads · **I** detail · **/** search · **?** shortcuts.
 
-## Supuestos del diseño inicial
+## How it calculates
 
-Todos se cambian en **Plan → Diseño del pozo** y aplican para todo despacho:
+- **Loads per sand** = design lbs ÷ average payload of its mine (from the OMMA export), rounded up.
+- **On location**: each load is needed when the well reaches the stage where its sand starts being pumped, minus the buffer (2 stages).
+- **Queue order and load number**: assigned loads first, in the order the shared state received them (so a dispatcher's clock or an offline phone never renumbers what everyone already saw); then pending loads by assign-by time (on-location time − mine lead time, the median *Accepted → Delivered*: Iron Oak 7h 21m, IronHorse 5h 45m). That is why Iron Oak moves ahead of IronHorse for the same stage. A load assigned out of order takes the next number and the pending ones shift by one. The queue shows no times: only the order and the number.
+- **Running total**: sand on location if assigned up to that load (overall, and of its own sand). The bar on top adds up what is actually assigned and says how far it covers. In loads the bar and its % count loads; in lbs or tons they weigh them.
+- **Final counts**: the load number that reaches the set share of loads (80% → #394 of 492).
+- **Prefill**: the 36 prefill loads are spread evenly between the prefill start and end.
+- **Queue statuses**: *Scheduled*, *Assigned* and *Overdue* (the stage already needed it and it is still unassigned).
+- **PO**: the one set in Plan; if empty, the one from the latest OMMA export for that sand.
+- **Calendar**: with no reports it uses the frac start and the design pace; from the first stage report on it re-anchors to the actual stage.
+- **Trucks required** = loads/day ÷ loads per truck per day (2 for Iron Oak, from the plan; 20/40 is estimated with the IronHorse cycle).
 
-- Prefill: del 23 sep (00:00, sin hora dada) al 28 sep 03:00. Inicio del pozo: 28 sep 06:00.
-- Etapas 1–30 al mismo ritmo que 31–105: 19 etapas/día.
-- Colchón en locación: 2 etapas. Ventana "asignar ya": 2 h. Turnos 06:00 y 18:00.
-- 40/70 usa el payload promedio de Iron Oak (el extracto no trae loads de 40/70).
-- Loads por truck al día de 20/40: estimado con el lead time de IronHorse (sin vueltas consecutivas en el extracto).
-- Las entregas OMMA cuentan como arena del pozo desde el inicio del prefill (23 sep): los 4 loads del extracto (25 y 27 sep) son parte del prefill.
-- PO de 40/70: no viene en el extracto; se captura en Plan.
-- Horas del export leídas en hora del centro (UTC−6).
-- Carriers 2–4 con nombre genérico; OMMA es el único con loads trackeados.
+## Starting design assumptions
 
-## Datos y privacidad
+All of them change in **Plan → Well design** and apply to all dispatch:
 
-- El repositorio es **público**: nunca subas exports crudos. Traen nombres de drivers y POs. El `.gitignore` bloquea `.xls`, `.xlsx` y `.csv`.
-- Al subir un export, la app guarda sólo lo que usa el cálculo y la cola: número de load y ticket, PO, producto, arenera, millas, truck, peso, tiempos, fechas, pozo y carrier. **No guarda nombres de drivers.**
-- Cualquiera con la URL de Netlify puede ver y palomear. No compartas la URL fuera de despacho.
+- Prefill: Sep 23 6:00 PM to Sep 28 3:00 AM. Well start: Sep 28 6:00 AM.
+- Stages 1–30 at the same pace as 31–105: 19 stages/day.
+- Buffer on location: 2 stages. "Assign now" window: 2 h. Shifts at 6:00 AM and 6:00 PM.
+- Final counts at 80% of loads assigned.
+- 40/70 uses the Iron Oak average payload (the extract has no 40/70 loads).
+- 20/40 loads per truck per day: estimated with the IronHorse lead time (no back-to-back trips in the extract).
+- OMMA deliveries count as well sand from the prefill start (Sep 23 6:00 PM): the 4 loads in the extract (Sep 24–27) are part of the prefill.
+- Export times read in Central time (UTC−6).
+- Carriers 2–4 have generic names; OMMA is the only one with tracked loads.
 
-## Desarrollo
+## Data and privacy
+
+- The repository is **public**: never upload raw exports, they carry driver names. `.gitignore` blocks `.xls`, `.xlsx` and `.csv`. The POs of this well are part of the starting design (`public/assets/js/seed.js`).
+- When an export is uploaded, the app keeps only what the calculation and the queue use: load and ticket number, PO, product, mine, miles, truck, weight, times, dates, well and carrier. **It never keeps driver names.**
+- Anyone with the Netlify URL can view and check loads off. Do not share the URL outside dispatch.
+
+## Development
 
 ```bash
 npm install
-npm test            # motor de cálculo, parser, reductor y función (27 pruebas)
-npx netlify dev     # app + función en http://localhost:8888
+npm test            # engine, parser, reducer and function (35 tests)
+npx netlify dev     # app + function at http://localhost:8888
 ```
 
 ```
-public/                 sitio estático (index.html, assets/css, assets/js, fuentes, íconos, sw.js para uso sin señal)
-  assets/js/engine.js   motor: diseño → slots, cadencia, cobertura, trucks
-  assets/js/reducer.js  operaciones compartidas (lo usan el navegador y la función)
-  assets/js/parser.js   lectura del export de OMMA (.xls HTML, .xlsx, .csv)
-  assets/js/store.js    sincronización con /api/state, cola sin conexión
-  assets/js/app.js      interfaz: 5 vistas, gráficas, filtros
-netlify/functions/state.mjs   GET/POST /api/state sobre Netlify Blobs con escritura condicional
-tests/                  pruebas con node:test
+public/                 static site (index.html, assets/css, assets/js, fonts, icons, sw.js for offline use)
+  assets/js/engine.js   engine: design → slots, cadence, coverage, trucks, final counts
+  assets/js/reducer.js  shared operations (used by the browser and by the function)
+  assets/js/parser.js   OMMA export reader (.xls HTML, .xlsx, .csv)
+  assets/js/store.js    sync with /api/state, offline queue
+  assets/js/seed.js     starting design, starting check marks and the revision patch
+  assets/js/app.js      interface: 5 views, charts, filters, queue interactions
+netlify/functions/state.mjs   GET/POST /api/state on Netlify Blobs with conditional writes
+tests/                  node:test suites
 ```
 
-Al cambiar íconos, fuentes o librerías en `public/assets`, sube la versión `CACHE` en `public/sw.js` para que las apps instaladas los recarguen.
+When icons, fonts or libraries change in `public/assets`, bump `CACHE` in `public/sw.js` so installed apps reload them. The comments inside the OMMA brand-kit files (`chartkit.js`, `ui-kit.js`, `components-cards.css`, `motion.css`, `tokens-pastel.css`) stay as they come from the design system.
 
 MEDS Logistics © 2026 — FILIALES/OMMA

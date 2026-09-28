@@ -1,8 +1,8 @@
-/* OMMA · Velox dispatch — visualizaciones propias (no Chart.js).
-   · Spiral: las 105 etapas del pozo sobre una hélice 3D. Cada punto es una etapa y su color es su
-     estado de cobertura. Gira SÓLO cuando el pozo está bombeando, a velocidad proporcional al ritmo:
-     el movimiento es la señal de que el frac está activo. Arrastrar la rota a mano.
-   · Route: dos carriles arenera → pozo con los loads en camino en su posición real (asignado + lead). */
+/* OMMA · Velox dispatch — custom visuals (not Chart.js).
+   · Spiral: the well's 105 stages on a 3D helix. Each dot is a stage colored by its coverage.
+     It spins ONLY while the well is pumping, at a speed proportional to the pace: the motion is
+     the signal that the frac is live. Dragging rotates it by hand.
+   · Route: two mine → well lanes with the loads en route at their actual position (assigned + lead). */
 (function (root) {
   'use strict';
   const reduce = () => root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -12,7 +12,7 @@
     return 'rgba(' + parseInt(h.slice(0, 2), 16) + ',' + parseInt(h.slice(2, 4), 16) + ',' + parseInt(h.slice(4, 6), 16) + ',' + a + ')';
   }
 
-  /* ============================== espiral de etapas ============================== */
+  /* ============================== stage spiral ============================== */
   function Spiral(canvas, opts) {
     this.cv = canvas;
     this.ctx = canvas.getContext('2d');
@@ -112,7 +112,7 @@
     const S = this.stages;
     if (!S.length) return;
     const zmax = Math.max.apply(null, pts.map(p => Math.abs(p.z))) || 1;
-    // órbitas de contexto (el "campo" del reference): elipses tenues
+    // context orbits (the reference's "field"): faint ellipses
     ctx.save();
     ctx.strokeStyle = 'rgba(136,147,166,.16)';
     ctx.lineWidth = 1;
@@ -121,16 +121,16 @@
       ctx.beginPath(); ctx.ellipse(this.w / 2, y, rx, rx * 0.16, 0, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.restore();
-    // hélice: segmentos con alfa por profundidad
+    // helix: segments with alpha by depth
     for (let i = 0; i + 1 < pts.length; i++) {
       const a = pts[i], b = pts[i + 1];
-      const depth = ((a.z + b.z) / 2) / zmax;              // −1 cerca · +1 lejos
+      const depth = ((a.z + b.z) / 2) / zmax;              // −1 near · +1 far
       const col = S[i].color || '#9AA6B6';
       ctx.strokeStyle = hexA(col.length === 7 ? col : '#9AA6B6', 0.18 + 0.5 * (1 - (depth + 1) / 2));
       ctx.lineWidth = 1.1 + 1.6 * (1 - (depth + 1) / 2);
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
-    // frontera de tramos
+    // segment boundary
     (this.meta.bounds || []).forEach(bi => {
       const p = pts[bi];
       if (!p) return;
@@ -141,10 +141,10 @@
       ctx.setLineDash([]);
       ctx.font = "700 9.5px 'JetBrains Mono', ui-monospace, monospace";
       ctx.fillStyle = '#7062A8';
-      ctx.fillText('E' + (bi + 1), this.w * 0.1, p.y - 5);
+      ctx.fillText('Stg ' + (bi + 1), this.w * 0.1, p.y - 5);
       ctx.restore();
     });
-    // puntos, del fondo hacia el frente
+    // dots, back to front
     const order = pts.slice().sort((a, b) => b.z - a.z);
     const tNow = (now || performance.now()) / 1000;
     order.forEach(p => {
@@ -163,12 +163,12 @@
         ctx.lineWidth = 1.6; ctx.stroke();
       }
     });
-    // extremos
+    // endpoints
     ctx.font = "800 10px 'JetBrains Mono', ui-monospace, monospace";
     ctx.fillStyle = '#8893A6';
     const p0 = pts[0], pn = pts[pts.length - 1];
-    ctx.fillText('E1', p0.x + 10, p0.y + 3);
-    ctx.fillText('E' + pts.length, pn.x + 10, pn.y + 3);
+    ctx.fillText('Stg 1', p0.x + 10, p0.y + 3);
+    ctx.fillText('Stg ' + pts.length, pn.x + 10, pn.y + 3);
   };
   Spiral.prototype._loop = function () {
     const live = !reduce() && (this.speed > 0 || this.stages.some(s => s.cur));
@@ -188,14 +188,15 @@
   };
   Spiral.prototype.stop = function () { this.running = false; };
 
-  /* ============================== ruta arenera → pozo ============================== */
+  /* ============================== mine → well route ============================== */
   function renderRoute(svgHost, data) {
     /* data: {lanes:[{id,name,place,miles,leadTxt,color,loads:[{p,color,title}]}], well} */
-    const W = 640, H = 176;
+    /* the drawing takes the width it is shown at (640 max), so its labels never shrink below their size */
+    const W = Math.round(Math.max(340, Math.min(640, svgHost.clientWidth || 640))), H = 176;
     const lanes = data.lanes;
     const wellX = W - 64, wellY = H / 2;
     const y0 = 44, gap = lanes.length > 1 ? (H - 88) / (lanes.length - 1) : 0;
-    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="route-svg" role="img" aria-label="Loads en camino por arenera">';
+    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="route-svg" role="img" aria-label="Loads en route by mine">';
     s += '<defs><radialGradient id="rgWell" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#ECF4F6"/></radialGradient></defs>';
     lanes.forEach((ln, i) => {
       const y = y0 + i * gap;
@@ -210,11 +211,11 @@
         '<text x="16" y="' + (y - 4) + '" class="rt-n">' + esc(ln.name) + '</text>' +
         '<text x="16" y="' + (y + 11) + '" class="rt-p">' + esc(ln.place) + '</text></g>';
       s += '<text x="' + (x0 + 14) + '" y="' + (y - 9) + '" class="rt-m">' + esc(ln.miles) + ' mi · lead ' + esc(ln.leadTxt) + '</text>';
-      s += '<text x="' + (x0 + 14) + '" y="' + (y + 20) + '" class="rt-c">' + (active ? ln.loads.length + ' en camino' : 'sin loads en camino') + '</text>';
+      s += '<text x="' + (x0 + 14) + '" y="' + (y + 20) + '" class="rt-c">' + (active ? ln.loads.length + ' en route' : 'no loads en route') + '</text>';
     });
     s += '<g class="rt-well"><circle cx="' + wellX + '" cy="' + wellY + '" r="26" fill="url(#rgWell)"/>' +
       '<circle cx="' + wellX + '" cy="' + wellY + '" r="26" class="rt-ring"/>' +
-      '<text x="' + wellX + '" y="' + (wellY - 2) + '" text-anchor="middle" class="rt-wn">POZO</text>' +
+      '<text x="' + wellX + '" y="' + (wellY - 2) + '" text-anchor="middle" class="rt-wn">WELL</text>' +
       '<text x="' + wellX + '" y="' + (wellY + 11) + '" text-anchor="middle" class="rt-wp">' + esc(data.wellShort || '') + '</text></g>';
     s += '<g class="rt-dots"></g></svg>';
     svgHost.innerHTML = s;

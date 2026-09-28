@@ -1,6 +1,6 @@
-/* Tipografías del sistema A servidas desde el propio sitio (subconjunto latin, variables).
-   Sin Google Fonts: la app carga igual con mala señal en campo y la CSP queda en 'self'.
-   Licencia SIL OFL 1.1 — ver assets/fonts/OFL.txt */
+/* System A typefaces served from the site itself (latin subset, variable).
+   No Google Fonts: the app loads the same with a weak signal in the field and the CSP stays at 'self'.
+   SIL OFL 1.1 license — see assets/fonts/OFL.txt */
 @font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-display:swap;font-weight:200 800;
   src:url(../fonts/plus-jakarta-sans-latin.woff2) format('woff2-variations'),url(../fonts/plus-jakarta-sans-latin.woff2) format('woff2')}
 @font-face{font-family:'Manrope';font-style:normal;font-display:swap;font-weight:200 800;

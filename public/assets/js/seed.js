@@ -1,6 +1,6 @@
-/* OMMA · Velox dispatch — configuración inicial del pozo y loads de referencia.
-   Todo lo que aquí viene es editable desde la app (pestaña Plan). Los valores marcados
-   [SUPUESTO] no venían en el diseño y hay que confirmarlos con el cliente. */
+/* OMMA · Velox dispatch — initial well configuration and reference loads.
+   Everything here can be edited in the app (Plan tab). Values tagged [ASSUMPTION] were not in the
+   well design and should be confirmed with the client. */
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -11,16 +11,16 @@
   const DEFAULT_CONFIG = {
     schema: 1,
     job: {
-      well: 'Riley Horned Frog 5',   // pozo de destino en el extracto de loads OMMA
-      client: 'Velox',               // del nombre del repositorio
+      well: 'Riley Horned Frog 5',   // destination well in the OMMA loads extract
+      client: 'Velox',               // from the repository name
       totalStages: 105
     },
-    tz: 'America/Mexico_City',       // zona de despacho; los horarios del export se leen en esta zona
-    shiftStartHour: 6,               // [SUPUESTO] turnos 06:00–18:00 / 18:00–06:00
+    tz: 'America/Mexico_City',       // dispatch time zone; export times are read in this zone
+    shiftStartHour: 6,               // [ASSUMPTION] shifts 06:00–18:00 / 18:00–06:00
     schedule: {
-      prefillStart: '2026-09-23T00:00',  // el prefill arrancó el 23 sep ([SUPUESTO] 00:00, sin hora)
-      prefillEnd: '2026-09-28T03:00',    // terminó 03:00 del 28 sep
-      fracStart: '2026-09-28T06:00'      // inicio del pozo (etapa 1) programado 06:00 del 28 sep
+      prefillStart: '2026-09-23T18:00',  // prefill started Sep 23 at 6:00 PM
+      prefillEnd: '2026-09-28T03:00',    // prefill ended Sep 28 at 3:00 AM
+      fracStart: '2026-09-28T06:00'      // well start (stage 1) scheduled Sep 28 at 6:00 AM
     },
     sands: [
       { id: '100M', label: '100 Mesh', mine: 'IRONOAK' },
@@ -33,26 +33,27 @@
       { id: 'IRONHORSE', name: 'IronHorse', place: 'Artesia, NM', miles: 7,
         match: ['ironhorse', 'iron horse', 'artesia'] }
     ],
-    // lbs por etapa. Etapas 31–105 a 19 etapas/día según el diseño;
-    // etapas 1–30 no traían ritmo: [SUPUESTO] el mismo 19.
-    // trucks: plan de trucks corriendo por arena en ese tramo (el diseño sólo lo da para 31–105).
+    // lbs per stage. Stages 31–105 run at 19 stages/day per the design;
+    // stages 1–30 had no pace: [ASSUMPTION] the same 19.
+    // trucks: trucks running per sand in that segment (the design only gives it for 31–105).
     segments: [
       { from: 1, to: 30, pace: 19, lbs: { '100M': 10000, '4070': 0, '2040': 111000 }, trucks: {} },
       { from: 31, to: 105, pace: 19, lbs: { '100M': 90000, '4070': 169000, '2040': 20000 },
         trucks: { '100M': 14, '4070': 26, '2040': 2 } }
     ],
     prefill: { '100M': 6, '4070': 0, '2040': 30 },
-    // del diseño: 14 trucks → 28 loads/día y 26 trucks → 52 loads/día = 2 loads por truck.
-    // 20/40 no traía ritmo: se calcula con el ciclo real de IronHorse.
+    // from the design: 14 trucks → 28 loads/day and 26 trucks → 52 loads/day = 2 loads per truck.
+    // 20/40 had no pace: it is computed from the actual IronHorse cycle.
     loadsPerTruckDay: { '100M': 2, '4070': 2, '2040': null },
-    bufferStages: 2,                 // [SUPUESTO] arena en locación con 2 etapas de anticipación
-    alertHours: 2,                   // ventana "asignar ya"
-    gapAlert: { warn: 2, alert: 5 }, // loads atrasados que encienden la señal
-    // las entregas OMMA cuentan como arena de este frac desde el inicio del prefill (23 sep):
-    // los 4 loads del extracto (25 y 27 sep) son parte del prefill. Vacío = todas las del pozo.
-    countFrom: '2026-09-23T00:00',
-    // PO por arena para la cola de asignación. Vacío = se toma del export de OMMA más reciente.
-    po: { '100M': '', '4070': '', '2040': '' },
+    bufferStages: 2,                 // [ASSUMPTION] sand on location 2 stages ahead
+    alertHours: 2,                   // "assign now" window
+    gapAlert: { warn: 2, alert: 5 }, // loads behind that turn the signal on
+    finalCountsPct: 80,              // at 80% of loads assigned: final counts, confirm with the frac crew
+    // OMMA deliveries count as sand for this frac from the prefill start (Sep 23 6:00 PM):
+    // the 4 loads in the extract (Sep 24–27) are part of the prefill. Empty = every load to the well.
+    countFrom: '2026-09-23T18:00',
+    // PO per sand for the assignment queue. Empty = taken from the latest OMMA export.
+    po: { '100M': 'SPA00021226', '4070': 'PO-24918', '2040': 'PO-1236' },
     carriers: [
       { id: 'OMMA', name: 'OMMA', tracked: true },
       { id: 'C2', name: 'Carrier 2', tracked: false },
@@ -62,9 +63,9 @@
     overrides: { payload: {}, leadMin: {} }
   };
 
-  /* Extracto de loads entregados por OMMA (4 loads, 24–27 sep 2026).
-     Sólo los campos que el cálculo y la cola usan (el PO dice contra qué orden se asigna); sin nombres de driver.
-     Horarios del export leídos en America/Mexico_City (UTC−6). */
+  /* OMMA delivered-loads extract (4 loads, Sep 24–27 2026).
+     Only the fields the calculation and the queue use (the PO says which order a load is assigned against);
+     no driver names. Export times read in America/Mexico_City (UTC−6). */
   const SEED_LOADS = [
     { k: '9|2746', n: '9', p: '2040', s: '2040', m: 'IRONHORSE', t: 'Ironhorse Permian Basin - Artesia',
       mi: 7, tr: 'OP1030', w: 52480, tm: 39, tx: 13, td: 59,
@@ -86,12 +87,16 @@
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
-  /* Punto de partida de despacho (28 sep 2026): el prefill ya quedó asignado — 30 × 20/40 y
-     6 × 100 Mesh — más el primer load de 40/70. Sin carrier: la cola no lo usa. La hora de cada
-     palomita se reparte a lo largo de la ventana del prefill (23 sep 00:00 → 28 sep 03:00). */
-  const REV = 2;
+  /* Dispatch starting point (Sep 28 2026): the prefill is already assigned — 30 × 20/40 and
+     6 × 100 Mesh — plus one 40/70 load that went out early by mistake: 37 assigned, #38 is next.
+     No carrier: the queue does not need it. The prefill check marks are stamped evenly across the prefill
+     window (Sep 23 6:00 PM → Sep 28 3:00 AM, the last one at 11:30 PM on Sep 27); the 40/70 is stamped
+     00:50 on Sep 28, after all of them, so it is #37. */
+  const REV = 3;
+  const OLD_FILE = 'Excel extracto de loads OMMA (referencia inicial)';
+  const SEED_FILE = 'OMMA loads extract (initial reference)';
   function baselineAsg() {
-    const PS = Date.parse('2026-09-23T00:00:00-06:00'), PE = Date.parse('2026-09-28T03:00:00-06:00');
+    const PS = Date.parse('2026-09-23T18:00:00-06:00'), PE = Date.parse('2026-09-28T03:00:00-06:00');
     const out = {};
     const spread = (sand, n) => {
       for (let k = 1; k <= n; k++) {
@@ -101,8 +106,23 @@
     };
     spread('2040', 30);
     spread('100M', 6);
-    out['4070-001'] = { c: '', t: '2026-09-28T06:50:00.000Z', by: '' };   // 00:50 hora del centro
+    out['4070-001'] = { c: '', t: '2026-09-28T06:50:00.000Z', by: '' };   // 00:50 Central
     return out;
+  }
+
+  /* Non-destructive update for a shared state already on revision 2: only fields that still hold the
+     revision-2 value change, so anything dispatch edited in Plan stays. Check marks are not touched. */
+  function patchFrom(rev) {
+    if (rev !== 2) return [];
+    return [
+      { path: 'config.schedule.prefillStart', from: '2026-09-23T00:00', to: '2026-09-23T18:00' },
+      { path: 'config.countFrom', from: '2026-09-23T00:00', to: '2026-09-23T18:00' },
+      { path: 'config.po.100M', from: '', to: 'SPA00021226' },
+      { path: 'config.po.4070', from: '', to: 'PO-24918' },
+      { path: 'config.po.2040', from: '', to: 'PO-1236' },
+      { path: 'config.finalCountsPct', from: '', to: 80 },
+      { path: 'omma.meta.file', from: OLD_FILE, to: SEED_FILE }
+    ];
   }
 
   function initialState() {
@@ -113,9 +133,10 @@
       config: clone(DEFAULT_CONFIG),
       asg: baselineAsg(),
       stage: [],
+      fc: null,
       omma: {
         loads: clone(SEED_LOADS),
-        meta: { file: 'Excel extracto de loads OMMA (referencia inicial)', rows: 4, at: Date.parse('2026-09-27T23:09:00-06:00') }
+        meta: { file: SEED_FILE, rows: 4, at: Date.parse('2026-09-27T23:09:00-06:00') }
       },
       log: [],
       opIds: [],
@@ -123,5 +144,5 @@
     };
   }
 
-  return { DEFAULT_CONFIG, SEED_LOADS, REV, baselineAsg, initialState, clone };
+  return { DEFAULT_CONFIG, SEED_LOADS, REV, baselineAsg, patchFrom, initialState, clone };
 });

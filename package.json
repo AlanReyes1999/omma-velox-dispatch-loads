@@ -2,7 +2,7 @@
   "name": "omma-velox-dispatch-loads",
   "version": "1.0.0",
   "private": true,
-  "description": "Asignación de loads de frac sand por diseño de pozo — OMMA Trucking / MEDS Logistics",
+  "description": "Frac sand load assignment by well design — OMMA Trucking / MEDS Logistics",
   "scripts": {
     "test": "node --test tests/*.test.js tests/*.test.mjs"
   },

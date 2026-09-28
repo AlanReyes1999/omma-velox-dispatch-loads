@@ -54,7 +54,7 @@ function growth(actual, prev, opt){
   opt = opt || {};
   const better = opt.better || 'high';
   if(prev == null || !isFinite(prev) || prev === 0 || actual == null || !isFinite(actual)){
-    return {html:'<span class="gr ghost">sin base</span>', dir:0, pct:null, good:null};
+    return {html:'<span class="gr ghost">no base</span>', dir:0, pct:null, good:null};
   }
   const diff = actual - prev;
   const pct  = opt.pp ? diff : (diff / Math.abs(prev)) * 100;
@@ -174,12 +174,12 @@ function filterMenu(cfg){
   mount.classList.add('fmenu');
   mount.innerHTML =
     '<button class="fmenu-btn" type="button" aria-haspopup="listbox" aria-expanded="false">'
-    + '<span class="fk">'+cfg.label+'</span><span class="fv">Todas</span>'
+    + '<span class="fk">'+cfg.label+'</span><span class="fv">All</span>'
     + '<span class="cnt" hidden>0</span>'
     + '<svg class="cv" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>'
     + '<div class="fmenu-pop'+(cfg.align === 'right' ? ' right' : '')+'" role="listbox">'
-    +   '<input class="fmenu-src" type="text" placeholder="Buscar '+cfg.label.toLowerCase()+'…" spellcheck="false">'
-    +   '<div class="fmenu-acts"><button data-a="all">Todas</button><button data-a="none">Ninguna</button><button data-a="inv">Invertir</button></div>'
+    +   '<input class="fmenu-src" type="text" placeholder="Search '+cfg.label.toLowerCase()+'…" spellcheck="false">'
+    +   '<div class="fmenu-acts"><button data-a="all">All</button><button data-a="none">None</button><button data-a="inv">Invert</button></div>'
     +   '<div class="fmenu-list"></div>'
     + '</div>';
 
@@ -192,7 +192,7 @@ function filterMenu(cfg){
   function paintList(){
     const s = sel(), C = counts();
     const mx = Math.max.apply(null, items.map(v => C[v] || 0).concat([1]));
-    if(!filt.length){ list.innerHTML = '<div class="fmenu-empty">Sin coincidencias</div>'; return; }
+    if(!filt.length){ list.innerHTML = '<div class="fmenu-empty">No matches</div>'; return; }
     list.innerHTML = filt.map(function(v,i){
       const on = s ? (s.has(v) || s.has(String(v))) : true;
       const n = C[v] || 0;
@@ -209,13 +209,13 @@ function filterMenu(cfg){
   function paintBtn(){
     const s = sel();
     if(!s || s.size === 0 || s.size === items.length){
-      fv.textContent = 'Todas'; cnt.hidden = true; btn.classList.remove('dirty');
+      fv.textContent = 'All'; cnt.hidden = true; btn.classList.remove('dirty');
     }else if(s.size === 1){
       const v = Array.from(s)[0];
       fv.textContent = String(v).length > 18 ? String(v).slice(0,17)+'…' : v;
       cnt.hidden = true; btn.classList.add('dirty');
     }else{
-      fv.textContent = 'Varias'; cnt.hidden = false; cnt.textContent = s.size; btn.classList.add('dirty');
+      fv.textContent = 'Several'; cnt.hidden = false; cnt.textContent = s.size; btn.classList.add('dirty');
     }
   }
 
@@ -441,7 +441,7 @@ const SN_ICON = {
   detail:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   read:  '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="2.5"/>'
 };
-const SN_ACT = {filter:'clic filtra →', detail:'clic abre detalle →', read:''};
+const SN_ACT = {filter:'click filters →', detail:'click opens detail →', read:''};
 function subNote(cfg){
   if(typeof cfg === 'string') cfg = {read:cfg, kind:'read'};
   const k = cfg.kind || 'read';

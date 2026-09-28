@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
-<title>Dispatch · asignación de loads</title>
-<meta name="description" content="Asignación de loads de frac sand por diseño de pozo — OMMA Trucking / MEDS Logistics">
+<title>Dispatch · load assignment</title>
+<meta name="description" content="Frac sand load assignment by well design — OMMA Trucking / MEDS Logistics">
 <meta name="theme-color" content="#F7F8FA">
 <meta name="application-name" content="OMMA Dispatch">
 <meta name="mobile-web-app-capable" content="yes">
@@ -27,9 +27,9 @@
 <body class="booting">
 <div class="app">
 
-  <!-- navegación lateral (escritorio) -->
-  <nav class="rail" id="rail" aria-label="Vistas">
-    <a class="rail-logo" href="#centro" aria-label="Inicio"><img src="assets/img/icon.svg" alt="" width="34" height="34"></a>
+  <!-- side navigation (desktop) -->
+  <nav class="rail" id="rail" aria-label="Views">
+    <a class="rail-logo" href="#command" aria-label="Home"><img src="assets/img/icon.svg" alt="" width="34" height="34"></a>
     <div class="rail-items" id="railItems"></div>
     <div class="rail-foot" id="railFoot"></div>
   </nav>
@@ -47,19 +47,19 @@
         <div class="phase" id="phase"><span class="dot neutral"></span><span class="ph-t">—</span></div>
       </div>
       <div class="top-right">
-        <button class="inst" id="installBtn" type="button" hidden><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Instalar app</span></button>
-        <button class="sync" id="sync" type="button" title="Estado de sincronización"><span class="sdot"></span><span class="stx">Conectando…</span></button>
-        <div class="unit seg" id="unitSeg" role="group" aria-label="Unidad">
+        <button class="inst" id="installBtn" type="button" hidden><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Install app</span></button>
+        <button class="sync" id="sync" type="button" title="Sync status"><span class="sdot"></span><span class="stx">Connecting…</span></button>
+        <div class="unit seg" id="unitSeg" role="group" aria-label="Unit">
           <button type="button" data-u="loads">Loads</button><button type="button" data-u="lbs">Lbs</button><button type="button" data-u="tons">Tons</button>
         </div>
         <div class="clock" id="clock"><b>--:--:--</b><small>—</small></div>
       </div>
     </header>
 
-    <div class="ticker" id="ticker" aria-label="Indicadores en vivo"><div class="tk-label">DISPATCH STREAM</div><div class="tk-view"><div class="tk-track" id="tkTrack"></div></div></div>
+    <div class="ticker" id="ticker" aria-label="Live indicators"><div class="tk-label">DISPATCH STREAM</div><div class="tk-view"><div class="tk-track" id="tkTrack"></div></div></div>
 
     <div class="fbar" id="fbar">
-      <div class="fgrp"><span class="flbl">Arena</span><div class="chips" id="chipsSand"></div></div>
+      <div class="fgrp"><span class="flbl">Sand</span><div class="chips" id="chipsSand"></div></div>
       <span class="fsep"></span>
       <div class="fgrp"><span class="flbl">Carrier</span><div class="chips" id="chipsCarrier"></div></div>
       <span class="fgrow"></span>
@@ -71,19 +71,19 @@
 
     <main class="views" id="views">
 
-      <!-- ========================= CENTRO ========================= -->
-      <section class="view" data-pane="centro" id="v-centro" aria-labelledby="h-centro">
+      <!-- ========================= COMMAND ========================= -->
+      <section class="view" data-pane="command" id="v-command" aria-labelledby="h-command">
         <div class="vhead">
-          <div><div class="eyebrow">01 · Centro de despacho</div><h2 id="h-centro">Qué asignar ahora y cómo va el pozo</h2></div>
+          <div><div class="eyebrow">01 · Dispatch command center</div><h2 id="h-command">What to assign now and how the well is going</h2></div>
           <div class="vmeta" id="ceMeta"></div>
         </div>
         <div class="kpis rise" id="ceKpis"></div>
 
         <div class="grid ce-main">
           <article class="gcard panel a-teal pwell" id="pWell">
-            <div class="ph"><span class="pn">01</span><h3>El pozo · espiral de etapas</h3><span class="pbadge" id="wellBadge">—</span></div>
+            <div class="ph"><span class="pn">01</span><h3>The well · stage spiral</h3><span class="pbadge" id="wellBadge">—</span></div>
             <div class="spiral-wrap">
-              <canvas id="spiral" data-nochart="1" aria-label="Espiral de etapas del pozo"></canvas>
+              <canvas id="spiral" data-nochart="1" aria-label="Well stage spiral"></canvas>
               <div class="callout cl" id="coLeft"></div>
               <div class="callout cr" id="coRight"></div>
             </div>
@@ -93,27 +93,27 @@
 
           <div class="col">
             <article class="gcard panel a-amber" id="pNext">
-              <div class="ph"><span class="pn">02</span><h3>Próximos a asignar</h3><span class="pbadge" id="nextBadge">—</span></div>
+              <div class="ph"><span class="pn">02</span><h3>Next to assign</h3><span class="pbadge" id="nextBadge">—</span></div>
               <div class="nextlist" id="nextList"></div>
-              <button class="linkbtn" type="button" data-go="asignar">Ver cola completa</button>
+              <button class="linkbtn" type="button" data-go="assign">See the full queue</button>
             </article>
             <article class="gcard panel a-lav" id="pRoute">
-              <div class="ph"><span class="pn">03</span><h3>Ruta · loads en camino</h3><span class="pbadge" id="routeBadge">—</span></div>
+              <div class="ph"><span class="pn">03</span><h3>Route · loads en route</h3><span class="pbadge" id="routeBadge">—</span></div>
               <div class="route" id="route"></div>
-              <div class="subnote read"><span class="ic"></span><span class="tx" id="routeNote">Cada punto es un load asignado, en su posición según la hora de asignación y el lead time de la arenera.</span></div>
+              <div class="subnote read"><span class="ic"></span><span class="tx" id="routeNote">Each dot is an assigned load, placed by its assignment time and the mine lead time.</span></div>
             </article>
           </div>
         </div>
 
         <div class="grid ce-row2">
           <article class="gcard panel clip a-sky" id="pGap">
-            <div class="ph"><span class="pn">04</span><h3>Ritmo de asignación · requerido vs asignado</h3>
-              <div class="seg sm" id="gapRange"><button type="button" data-r="48">48 h</button><button type="button" data-r="all">Todo el pozo</button></div></div>
-            <p class="pdesc">La línea punteada es cuántos loads ya debían estar asignados según la cadencia; el área, cuántos se asignaron. La distancia entre las dos es el gap.</p>
+            <div class="ph"><span class="pn">04</span><h3>Assignment pace · required vs assigned</h3>
+              <div class="seg sm" id="gapRange"><button type="button" data-r="48">48 h</button><button type="button" data-r="all">Whole well</button></div></div>
+            <p class="pdesc">The dotted line is how many loads should be assigned by now per the cadence; the area is how many were assigned. The distance between them is the gap.</p>
             <div class="ch ch-l"><canvas id="ce_gap"></canvas></div>
           </article>
           <article class="gcard panel clip a-teal" id="pCar">
-            <div class="ph"><span class="pn">05</span><h3>Arena asignada · por tipo</h3><span class="pbadge" id="carBadge">—</span></div>
+            <div class="ph"><span class="pn">05</span><h3>Assigned sand · by type</h3><span class="pbadge" id="carBadge">—</span></div>
             <div class="dnwrap"><div class="cw"><canvas id="ce_sand"></canvas></div><div class="dnlist" id="carList"></div></div>
           </article>
         </div>
@@ -121,78 +121,81 @@
         <div class="grid ce-row3">
           <div class="sandgrid" id="sandCards"></div>
           <article class="gcard panel a-ink" id="pLog">
-            <div class="ph"><span class="pn">07</span><h3>Bitácora de despacho</h3><span class="pbadge" id="logBadge">—</span></div>
+            <div class="ph"><span class="pn">07</span><h3>Dispatch activity log</h3><span class="pbadge" id="logBadge">—</span></div>
             <div class="stream" id="stream"></div>
           </article>
         </div>
       </section>
 
-      <!-- ========================= ASIGNAR ========================= -->
-      <section class="view" data-pane="asignar" id="v-asignar" aria-labelledby="h-asignar">
+      <!-- ========================= ASSIGN ========================= -->
+      <section class="view" data-pane="assign" id="v-assign" aria-labelledby="h-assign">
         <div class="vhead">
-          <div><div class="eyebrow">02 · Cola de asignación</div><h2 id="h-asignar">Palomea cada load al asignarlo</h2></div>
+          <div><div class="eyebrow">02 · Assignment queue</div><h2 id="h-assign">Check off each load as you assign it</h2></div>
           <div class="vmeta" id="asMeta"></div>
         </div>
 
-        <!-- arena en locación: se suma con cada palomita -->
+        <!-- sand on location: grows with every check mark -->
         <article class="gcard sandbar a-teal" id="sandBar" aria-live="polite">
           <div class="sb-head">
             <div class="sb-title">
-              <div class="sb-eyebrow">Arena en locación · asignada</div>
-              <div class="sb-total"><b id="sbTotal">0</b><small id="sbUnit">lb</small><span class="sb-of" id="sbOf">—</span></div>
+              <div class="sb-eyebrow">Sand on location · assigned</div>
+              <div class="sb-total"><b id="sbTotal">0</b><small id="sbUnit">loads</small><span class="sb-of" id="sbOf">—</span></div>
             </div>
             <div class="sb-next" id="sbNext"></div>
-            <div class="seg sm" id="sbMode" role="group" aria-label="Vista de la barra"><button type="button" data-m="general">General</button><button type="button" data-m="arena">Por arena</button></div>
+            <div class="seg sm" id="sbMode" role="group" aria-label="Bar view"><button type="button" data-m="general">Overall</button><button type="button" data-m="sand">By sand</button></div>
           </div>
           <div class="sb-body" id="sbBody"></div>
+          <div class="sb-fc" id="sbFc" hidden></div>
           <div class="sb-foot" id="sbFoot"></div>
         </article>
 
         <div class="astool" id="asTool">
           <div class="chips" id="asStatus"></div>
           <label class="search"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="asQuery" type="search" placeholder="Buscar #, load, PO, arenera o etapa" autocomplete="off" spellcheck="false"></label>
-          <button class="btn sm" type="button" id="goNext">Ir al siguiente</button>
+            <input id="asQuery" type="search" placeholder="Search #, load, PO, mine or stage" autocomplete="off" spellcheck="false" aria-label="Search the queue"></label>
+          <button class="btn sm" type="button" id="goNext">Go to next</button>
+          <button class="btn sm ghost kbd-btn" type="button" id="kbdBtn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 15.5h6"/></svg></button>
           <div class="ascount" id="asCount"></div>
         </div>
         <div class="qwrap">
-          <div class="qhead" aria-hidden="true"><span></span><span>#</span><span>Load</span><span>Arenera</span><span>PO</span><span>Etapa</span><span>Suma en locación</span><span>Estado</span><span>Carrier</span></div>
+          <div class="qhead" aria-hidden="true"><span></span><span>#</span><span>Load</span><span>Mine</span><span>PO</span><span>Stage</span><span>Running total</span><span>Status</span><span>Carrier</span></div>
           <div class="qlist" id="asList" role="list"></div>
         </div>
+        <p class="qhint">Tip: <b>Shift</b>-click a check box to assign every load from the next one up to it · click a row (or press <b>I</b>) for its detail · <b>?</b> for shortcuts.</p>
       </section>
 
-      <!-- ========================= AVANCE ========================= -->
-      <section class="view" data-pane="avance" id="v-avance" aria-labelledby="h-avance">
+      <!-- ========================= PROGRESS ========================= -->
+      <section class="view" data-pane="progress" id="v-progress" aria-labelledby="h-progress">
         <div class="vhead">
-          <div><div class="eyebrow">03 · Avance del pozo</div><h2 id="h-avance">Cuántas etapas cubre la arena</h2></div>
-          <div class="vmeta"><div class="seg sm" id="basisSeg"><button type="button" data-b="asg">Asignado</button><button type="button" data-b="est">Entregado est.</button><button type="button" data-b="omma">OMMA real</button></div></div>
+          <div><div class="eyebrow">03 · Well progress</div><h2 id="h-progress">How many stages the sand covers</h2></div>
+          <div class="vmeta"><div class="seg sm" id="basisSeg"><button type="button" data-b="asg">Assigned</button><button type="button" data-b="est">Delivered (est.)</button><button type="button" data-b="omma">OMMA actual</button></div></div>
         </div>
         <div class="kpis rise" id="avKpis"></div>
         <div class="grid g2">
           <article class="gcard panel clip a-mint" id="pCov">
-            <div class="ph"><span class="pn">01</span><h3>Cobertura por arena</h3><span class="pbadge" id="covBadge">—</span></div>
-            <p class="pdesc">La barra gris es lo que pide el diseño; encima, lo asignado y lo entregado. La arena más corta decide hasta qué etapa alcanza.</p>
+            <div class="ph"><span class="pn">01</span><h3>Coverage by sand</h3><span class="pbadge" id="covBadge">—</span></div>
+            <p class="pdesc">The gray bar is what the design needs; on top, what is assigned and delivered. The shortest sand decides how far the well is covered.</p>
             <div class="ch"><canvas id="av_cov"></canvas></div>
           </article>
           <article class="gcard panel clip a-sky" id="pStage">
-            <div class="ph"><span class="pn">02</span><h3>Etapa real vs plan</h3><span class="pbadge" id="stageBadge">—</span></div>
-            <p class="pdesc">Línea punteada: etapa que tocaba según el ritmo del diseño. Puntos: etapas reportadas por el frac crew.</p>
+            <div class="ph"><span class="pn">02</span><h3>Actual stage vs plan</h3><span class="pbadge" id="stageBadge">—</span></div>
+            <p class="pdesc">Dotted line: the stage due per the design pace. Dots: stages reported by the frac crew.</p>
             <div class="ch"><canvas id="av_stage"></canvas></div>
           </article>
         </div>
         <div class="grid g2">
           <article class="gcard panel a-amber" id="pReport">
-            <div class="ph"><span class="pn">03</span><h3>Reportar etapa completada</h3><span class="pbadge" id="repBadge">—</span></div>
+            <div class="ph"><span class="pn">03</span><h3>Report completed stage</h3><span class="pbadge" id="repBadge">—</span></div>
             <form class="repform" id="repForm" autocomplete="off">
-              <label><span>Última etapa completada</span><input type="number" id="repN" min="0" step="1" inputmode="numeric" required></label>
-              <label><span>Hora</span><input type="datetime-local" id="repT" required></label>
-              <button class="btn primary" type="submit">Registrar</button>
+              <label><span>Last completed stage</span><input type="number" id="repN" min="0" step="1" inputmode="numeric" required></label>
+              <label><span>Time</span><input type="datetime-local" id="repT" required></label>
+              <button class="btn primary" type="submit">Log</button>
             </form>
-            <p class="pdesc">Con cada reporte el calendario se re-ancla: las horas límite de toda la cola se recalculan desde la etapa real.</p>
+            <p class="pdesc">Each report re-anchors the calendar: the whole queue is recalculated from the actual stage.</p>
             <div class="replist" id="repList"></div>
           </article>
           <article class="gcard panel a-teal" id="pRecon">
-            <div class="ph"><span class="pn">04</span><h3>OMMA · asignado vs entregado</h3><span class="pbadge" id="reconBadge">—</span></div>
+            <div class="ph"><span class="pn">04</span><h3>OMMA · assigned vs delivered</h3><span class="pbadge" id="reconBadge">—</span></div>
             <div class="recon" id="recon"></div>
           </article>
         </div>
@@ -201,18 +204,18 @@
       <!-- ========================= PLAN ========================= -->
       <section class="view" data-pane="plan" id="v-plan" aria-labelledby="h-plan">
         <div class="vhead">
-          <div><div class="eyebrow">04 · Diseño y plan</div><h2 id="h-plan">Diseño del pozo, loads por día y trucks</h2></div>
+          <div><div class="eyebrow">04 · Design and plan</div><h2 id="h-plan">Well design, loads per day and trucks</h2></div>
           <div class="vmeta" id="plMeta"></div>
         </div>
         <div class="sandtotals" id="sandTotals"></div>
         <div class="grid g2w">
           <article class="gcard panel clip a-teal" id="pDays">
-            <div class="ph"><span class="pn">01</span><h3>Loads a asignar por día</h3><span class="pbadge" id="daysBadge">—</span></div>
-            <p class="pdesc">Barras: loads cuya hora límite cae en ese día, por arena. Línea: capacidad de los trucks del plan (trucks × loads por truck al día).</p>
+            <div class="ph"><span class="pn">01</span><h3>Loads to assign per day</h3><span class="pbadge" id="daysBadge">—</span></div>
+            <p class="pdesc">Bars: loads whose assign-by time falls on that day, by sand. Line: planned truck capacity (trucks × loads per truck per day).</p>
             <div class="ch ch-l"><canvas id="pl_days"></canvas></div>
           </article>
           <article class="gcard panel clip a-coral" id="pTrucks">
-            <div class="ph"><span class="pn">02</span><h3>Trucks requeridos vs plan</h3>
+            <div class="ph"><span class="pn">02</span><h3>Trucks required vs plan</h3>
               <div class="seg sm" id="segPick"></div></div>
             <p class="pdesc" id="trucksDesc">—</p>
             <div class="ch"><canvas id="pl_trucks"></canvas></div>
@@ -220,44 +223,44 @@
           </article>
         </div>
         <article class="gcard panel a-lav" id="pDesign">
-          <div class="ph"><span class="pn">03</span><h3>Diseño del pozo</h3><span class="pbadge" id="designBadge">—</span></div>
+          <div class="ph"><span class="pn">03</span><h3>Well design</h3><span class="pbadge" id="designBadge">—</span></div>
           <div id="designForm"></div>
         </article>
       </section>
 
-      <!-- ========================= ARENERAS ========================= -->
-      <section class="view" data-pane="areneras" id="v-areneras" aria-labelledby="h-areneras">
+      <!-- ========================= MINES ========================= -->
+      <section class="view" data-pane="mines" id="v-mines" aria-labelledby="h-mines">
         <div class="vhead">
-          <div><div class="eyebrow">05 · Areneras y loads OMMA</div><h2 id="h-areneras">Tiempos de carga, tránsito y payload</h2></div>
+          <div><div class="eyebrow">05 · Mines and OMMA loads</div><h2 id="h-mines">Load, transit and payload times</h2></div>
           <div class="vmeta" id="arMeta"></div>
         </div>
         <div class="minegrid" id="mineCards"></div>
         <div class="grid g2">
           <article class="gcard panel clip a-sky" id="pCycle">
-            <div class="ph"><span class="pn">01</span><h3>Composición del ciclo</h3><span class="pbadge">mediana</span></div>
-            <p class="pdesc">Dónde se va el tiempo de cada vuelta: en la arenera, en tránsito, en locación y en el regreso más espera.</p>
+            <div class="ph"><span class="pn">01</span><h3>Cycle breakdown</h3><span class="pbadge">median</span></div>
+            <p class="pdesc">Where each trip's time goes: at the mine, in transit, on location, and back plus waiting.</p>
             <div class="ch ch-s"><canvas id="ar_cycle"></canvas></div>
           </article>
           <article class="gcard panel clip a-lav" id="pScatter">
-            <div class="ph"><span class="pn">02</span><h3>Payload vs lead time por load</h3><span class="pbadge" id="scBadge">—</span></div>
-            <p class="pdesc">Cada punto es un load OMMA. A la derecha, los que tardaron más de asignado a entregado; arriba, los más pesados.</p>
+            <div class="ph"><span class="pn">02</span><h3>Payload vs lead time per load</h3><span class="pbadge" id="scBadge">—</span></div>
+            <p class="pdesc">Each dot is an OMMA load. To the right, the ones that took longer from assigned to delivered; higher up, the heaviest.</p>
             <div class="ch"><canvas id="ar_scatter"></canvas></div>
           </article>
         </div>
         <article class="gcard panel a-teal" id="pUpload">
-          <div class="ph"><span class="pn">03</span><h3>Subir loads de OMMA</h3><span class="pbadge" id="upBadge">—</span></div>
+          <div class="ph"><span class="pn">03</span><h3>Upload OMMA loads</h3><span class="pbadge" id="upBadge">—</span></div>
           <div class="upload">
             <label class="drop" id="drop">
               <input type="file" id="fileIn" accept=".xls,.xlsx,.csv,.tsv,.txt,.html,.htm">
               <span class="drop-ic"></span>
-              <span class="drop-t">Arrastra el export de loads o toca para elegirlo</span>
-              <span class="drop-s">.xls exportado del sistema, .xlsx o .csv · se guardan sólo los datos del cálculo, nunca nombres de drivers</span>
+              <span class="drop-t">Drag the loads export here or tap to choose it</span>
+              <span class="drop-s">.xls exported from the system, .xlsx or .csv · only the data the calculation needs is kept, never driver names</span>
             </label>
             <div class="upprev" id="upPrev"></div>
           </div>
         </article>
         <article class="gcard panel a-ink" id="pLoads">
-          <div class="ph"><span class="pn">04</span><h3>Loads OMMA de este pozo</h3><span class="pbadge" id="loadsBadge">—</span></div>
+          <div class="ph"><span class="pn">04</span><h3>OMMA loads for this well</h3><span class="pbadge" id="loadsBadge">—</span></div>
           <div class="tscroll tablewrap"><table class="ltable" id="loadsTable"></table></div>
         </article>
       </section>
@@ -266,13 +269,13 @@
     <footer class="foot" id="foot"></footer>
   </div>
 
-  <!-- barra inferior (celular) -->
-  <nav class="tabbar" id="tabbar" aria-label="Vistas"></nav>
+  <!-- bottom bar (phone) -->
+  <nav class="tabbar" id="tabbar" aria-label="Views"></nav>
 </div>
 
-<!-- capas flotantes: siempre hijas de body -->
-<div class="sbmini" id="sbMini" aria-hidden="true"><div class="sbm-in"><span class="sbm-l">Arena en locación</span><b id="sbmTotal">—</b><div class="sbm-bar" id="sbmBar"></div><span class="sbm-next" id="sbmNext"></span></div></div>
-<div id="detailCard" class="detail-card"><span class="dc-close" id="dcClose">×</span><div class="dc-title" id="dcTitle"></div><div id="dcBody"></div></div>
+<!-- floating layers: always children of body -->
+<div class="sbmini" id="sbMini" aria-hidden="true"><div class="sbm-in"><span class="sbm-l">Sand on location</span><b id="sbmTotal">—</b><div class="sbm-bar" id="sbmBar"></div><span class="sbm-next" id="sbmNext"></span></div></div>
+<div id="detailCard" class="detail-card" role="dialog" aria-labelledby="dcTitle"><button type="button" class="dc-close" id="dcClose" aria-label="Close">×</button><div class="dc-title" id="dcTitle"></div><div id="dcBody"></div></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <div class="modal" id="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalT"><h4 id="modalT"></h4><div id="modalB"></div><div class="modal-acts" id="modalA"></div></div></div>
 

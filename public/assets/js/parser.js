@@ -1,6 +1,6 @@
-/* OMMA · Velox dispatch — lectura del export de loads de OMMA.
-   Formatos: el .xls que en realidad es una tabla HTML (así sale del sistema), .xlsx/.xls binario
-   (SheetJS, se carga sólo si hace falta) y .csv/.tsv. Nunca guarda el nombre del driver. El PO sí: dice a despacho contra qué orden asignar. */
+/* OMMA · Velox dispatch — reader for the OMMA loads export.
+   Formats: the .xls that is really an HTML table (how the system exports it), binary .xlsx/.xls
+   (SheetJS, loaded only when needed) and .csv/.tsv. Never stores the driver's name. The PO is kept: it tells dispatch which order to assign against. */
 (function (root, factory) {
   const api = factory(root);
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -17,7 +17,7 @@
   }
   function stripTags(s) { return decode(s.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim(); }
 
-  /* Tabla HTML → matriz. Toma la tabla con más filas. */
+  /* HTML table → matrix. Takes the table with the most rows. */
   function htmlToRows(html) {
     const tables = html.match(/<table[\s\S]*?<\/table>/gi) || [html];
     let best = [];
@@ -109,7 +109,7 @@
     return isFinite(x) ? x : null;
   }
 
-  /* matriz → loads normalizados + reporte de calidad */
+  /* matrix → normalized loads + quality report */
   function toLoads(rows, cfg, E) {
     const tz = cfg.tz || 'America/Mexico_City';
     const hi = headerRowIndex(rows);
@@ -130,17 +130,17 @@
       const carrierRaw = get(r, 'carrier');
       const cn = E.normText(carrierRaw);
       if (carrierRaw != null && cn) rep.carriers[carrierRaw] = (rep.carriers[carrierRaw] || 0) + 1;
-      if (idx.carrier != null && cn && trackedNames.length && !trackedNames.some(t => cn.includes(t))) { skip('otro carrier'); continue; }
+      if (idx.carrier != null && cn && trackedNames.length && !trackedNames.some(t => cn.includes(t))) { skip('other carrier'); continue; }
       const prodRaw = get(r, 'product');
       const s = E.normProduct(prodRaw);
       if (prodRaw) rep.products[prodRaw] = (rep.products[prodRaw] || 0) + 1;
-      if (!s) { skip('producto no reconocido'); continue; }
-      if (!sandIds.has(s)) { skip('arena fuera del diseño (' + s + ')'); continue; }
+      if (!s) { skip('unrecognized product'); continue; }
+      if (!sandIds.has(s)) { skip('sand not in design (' + s + ')'); continue; }
       const w = num(get(r, 'weight'));
-      if (!(w > 1000 && w < 120000)) { skip('sin peso válido'); continue; }
+      if (!(w > 1000 && w < 120000)) { skip('no valid weight'); continue; }
       const a = E.parseWall(get(r, 'acc'), tz);
       const d = E.parseWall(get(r, 'del'), tz);
-      if (d == null && a == null) { skip('sin fechas'); continue; }
+      if (d == null && a == null) { skip('no dates'); continue; }
       const termRaw = get(r, 'terminal') || '';
       const m = E.normMine(termRaw, cfg.mines);
       const wl = String(get(r, 'well') || '').trim();
@@ -150,7 +150,7 @@
       if (keys.has(k)) { rep.dup++; continue; }
       keys.add(k);
       if (wl) rep.wells[wl] = (rep.wells[wl] || 0) + 1;
-      rep.mines[m || termRaw || '(sin terminal)'] = (rep.mines[m || termRaw || '(sin terminal)'] || 0) + 1;
+      rep.mines[m || termRaw || '(no terminal)'] = (rep.mines[m || termRaw || '(no terminal)'] || 0) + 1;
       const tt = d || a;
       rep.from = rep.from == null ? tt : Math.min(rep.from, tt);
       rep.to = rep.to == null ? tt : Math.max(rep.to, tt);
@@ -176,23 +176,23 @@
       const s = document.createElement('script');
       s.src = src || 'assets/js/vendor/xlsx.full.min.js';
       s.onload = () => res(root.XLSX);
-      s.onerror = () => { _xlsxLoading = null; rej(new Error('No se pudo cargar el lector de Excel')); };
+      s.onerror = () => { _xlsxLoading = null; rej(new Error('Could not load the Excel reader')); };
       document.head.appendChild(s);
     });
     return _xlsxLoading;
   }
 
-  /* archivo del navegador → {rows, format} */
+  /* browser file → {rows, format} */
   async function readFile(file) {
     const name = (file.name || '').toLowerCase();
     const buf = await file.arrayBuffer();
     const head = new Uint8Array(buf.slice(0, 8));
     const isZip = head[0] === 0x50 && head[1] === 0x4B;          // xlsx
-    const isOle = head[0] === 0xD0 && head[1] === 0xCF;          // xls binario
+    const isOle = head[0] === 0xD0 && head[1] === 0xCF;          // binary xls
     if (!isZip && !isOle) {
       let text = new TextDecoder('utf-8').decode(buf);
       if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-      if (looksHTML(text)) return { rows: htmlToRows(text), format: 'tabla HTML (.xls exportado)' };
+      if (looksHTML(text)) return { rows: htmlToRows(text), format: 'HTML table (.xls export)' };
       if (/\.(csv|tsv|txt)$/.test(name) || text.indexOf('\n') > 0) return { rows: csvToRows(text), format: 'CSV' };
     }
     const X = await loadSheetJS();

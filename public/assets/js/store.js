@@ -1,8 +1,8 @@
-/* OMMA · Velox dispatch — sincronización del estado compartido.
-   Modo remoto: Netlify Function /api/state (todos los dispatchers ven lo mismo).
-   Modo local: si la función no existe (GitHub Pages, archivo abierto en disco), el estado vive
-   sólo en este navegador y la app lo avisa. Sin conexión: se sigue trabajando y las
-   operaciones se encolan hasta que vuelva la red. */
+/* OMMA · Velox dispatch — shared state sync.
+   Remote mode: Netlify Function /api/state (every dispatcher sees the same thing).
+   Local mode: if the function does not exist (GitHub Pages, file opened from disk), the state lives
+   only in this browser and the app says so. Offline: work continues and operations are queued
+   until the network is back. */
 (function (root) {
   'use strict';
   const R = root.DispatchReducer, Seed = root.Seed;
@@ -11,7 +11,7 @@
   const POLL_MS = 15000, POLL_IDLE_MS = 60000, IDLE_AFTER = 10 * 60e3;
 
   function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
-  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* cuota o modo privado */ } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* quota or private mode */ } }
   function uid() {
     try { if (crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
     return 'op-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -30,6 +30,7 @@
 
   const Store = {
     mode: 'init',          // remote · local · offline
+    connected: false,      // reached the shared state at least once this session
     state: null,
     v: 0,
     pending: [],
@@ -48,7 +49,7 @@
     _emit(reason) { this._subs.forEach(f => { try { f(this.state, reason); } catch (e) { console.error('[store] listener', e); } }); },
     _persist() { lsSet(LS_STATE, this.state); lsSet(LS_PENDING, this.pending); },
 
-    /* estado del servidor + mis operaciones aún no confirmadas */
+    /* server state + my operations not confirmed yet */
     _rebase(server) {
       let st = server;
       if (this.pending.length) st = R.apply(server, this.pending).state;
@@ -72,16 +73,22 @@
     async _connect() {
       try {
         const r = await fetchJSON(API, { cache: 'no-store' }, 9000);
-        if (r.status === 404 || !r.json || !r.body || r.body.ok !== true) {
+        if (r.status === 404) {
+          /* the function does not exist here (static host or a file on disk): local mode for good */
           this.mode = 'local';
           lsSet(LS_MODE, 'local');
           this._emit('mode');
           return;
         }
+        if (!r.json || !r.body || r.body.ok !== true) {
+          /* a gateway error or a captive-portal page is not "no server": stay offline and retry */
+          throw new Error('HTTP ' + r.status);
+        }
+        this.connected = true;
         this.mode = 'remote';
         lsSet(LS_MODE, 'remote');
         if (!r.body.state || !r.body.state.config) {
-          /* store vacío: lo siembra este cliente con la configuración inicial */
+          /* empty store: this client seeds it with the initial configuration */
           const seedState = (this.state && this.state.config) ? this.state : Seed.initialState();
           const init = { id: uid(), type: 'init', state: seedState, by: this.me(), t: new Date().toISOString() };
           this.pending = [init].concat(this.pending.filter(o => o.type !== 'init'));
@@ -95,13 +102,15 @@
           if (this.pending.length) await this.flush();
         }
       } catch (e) {
-        this.mode = lsGet(LS_MODE, 'local') === 'remote' ? 'offline' : 'local';
+        /* only a file opened from disk is local for sure; anything else is treated as a network problem:
+           changes queue up (nothing is lost) and the app keeps trying to reach the shared state */
+        this.mode = (typeof location !== 'undefined' && location.protocol === 'file:') ? 'local' : 'offline';
         this.lastError = e && e.message;
         this._emit('mode');
       }
     },
 
-    /* aplica local (optimista) y encola para el servidor */
+    /* applies locally (optimistic) and queues for the server */
     dispatch(ops) {
       const me = this.me();
       const t = new Date().toISOString();
@@ -118,7 +127,7 @@
       this._persist();
       this._emit('optimistic');
       clearTimeout(this._flushT);
-      this._flushT = setTimeout(() => this.flush(), 350);   // agrupa clics rápidos en un solo POST
+      this._flushT = setTimeout(() => this.flush(), 350);   // batches quick clicks into a single POST
       return ops;
     },
 
@@ -149,7 +158,7 @@
           this._persist();
           this._emit('mode');
         } else if (r.status === 400 || r.status === 413) {
-          /* operación rechazada por el servidor: se descarta para no bloquear la cola */
+          /* operation rejected by the server: dropped so it does not block the queue */
           const sent = new Set(batch.map(o => o.id));
           this.pending = this.pending.filter(o => !sent.has(o.id));
           this.lastError = (r.body && r.body.error) || ('Error ' + r.status);
@@ -174,6 +183,8 @@
     async poll(force) {
       if (this.mode === 'local') return;
       if (document.hidden && !force) return;
+      /* never reached the server this session (boot was offline): connect properly, seeding if empty */
+      if (!this.connected) { const was = this.mode; await this._connect(); if (this.mode === 'remote' && was !== 'remote') this._emit('sync'); return; }
       if (this.pending.length) return this.flush();
       try {
         const r = await fetchJSON(API, { cache: 'no-cache' }, 9000);
@@ -203,7 +214,7 @@
       this._timer = setTimeout(async () => { await this.poll(); this._schedule(); }, idle ? POLL_IDLE_MS : POLL_MS);
     },
 
-    /* sólo para "empezar de cero" en modo local */
+    /* only to "start over" in local mode */
     resetLocal() {
       this.state = Seed.initialState();
       this.pending = [];

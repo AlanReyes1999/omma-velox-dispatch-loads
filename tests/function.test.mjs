@@ -1,5 +1,5 @@
-/* Prueba de la Netlify Function con un store en memoria que imita a @netlify/blobs
-   (lecturas con etag y escrituras condicionales onlyIfMatch / onlyIfNew). */
+/* Netlify Function test with an in-memory store that mimics @netlify/blobs
+   (etag reads and conditional writes onlyIfMatch / onlyIfNew). */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -23,7 +23,7 @@ function memStore() {
 const post = ops => new Request('https://x/api/state', { method: 'POST', body: JSON.stringify({ ops }) });
 const get = () => new Request('https://x/api/state');
 
-test('GET vacío, init, asignaciones y caché purgado', async () => {
+test('empty GET, init, assignments and cache purge', async () => {
   const store = memStore();
   let purges = 0;
   const purge = async () => { purges++; };
@@ -35,7 +35,7 @@ test('GET vacío, init, asignaciones y caché purgado', async () => {
   assert.equal(r.headers.get('netlify-cache-tag'), 'dispatch-state');
 
   r = await handle(post([{ id: 'x1', type: 'asg', slot: '100M-001', c: 'OMMA' }]), store, purge);
-  assert.equal(r.status, 409, 'sin init no se escribe');
+  assert.equal(r.status, 409, 'no writes before init');
 
   r = await handle(post([{ id: 'i', type: 'init', state: Seed.initialState() }]), store, purge);
   b = await r.json();
@@ -45,7 +45,7 @@ test('GET vacío, init, asignaciones y caché purgado', async () => {
   assert.equal(b.v, 2);
   assert.equal(b.state.asg['100M-001'].c, 'OMMA');
   assert.equal(purges, 2);
-  // reintento de la misma operación: no sube versión ni purga
+  // retrying the same operation: no new version, no purge
   r = await handle(post([{ id: 'a1', type: 'asg', slot: '100M-001', c: 'OMMA' }]), store, purge);
   b = await r.json();
   assert.equal(b.v, 2);
@@ -54,7 +54,7 @@ test('GET vacío, init, asignaciones y caché purgado', async () => {
   assert.equal(r.headers.get('etag'), '"v2"');
 });
 
-test('escrituras concurrentes: ninguna se pierde', async () => {
+test('concurrent writes: none is lost', async () => {
   const store = memStore();
   const purge = async () => {};
   const init = Seed.initialState(); init.asg = {};
@@ -66,7 +66,7 @@ test('escrituras concurrentes: ninguna se pierde', async () => {
   assert.equal(b.v, 13);
 });
 
-test('errores de entrada', async () => {
+test('input errors', async () => {
   const store = memStore();
   const purge = async () => {};
   let r = await handle(new Request('https://x/api/state', { method: 'POST', body: '{bad' }), store, purge);

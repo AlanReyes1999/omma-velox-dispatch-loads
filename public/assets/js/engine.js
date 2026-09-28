@@ -1,15 +1,15 @@
-/* OMMA · Velox dispatch — motor de cálculo.
-   Puro y sin dependencias: corre igual en el navegador (window.Engine) y en Node (tests).
+/* OMMA · Velox dispatch — calculation engine.
+   Pure and dependency-free: runs the same in the browser (window.Engine) and in Node (tests).
 
-   Grano del modelo: UNA fila = UN load (slot) que hay que asignar para cubrir el diseño del pozo.
-   El slot k de una arena es "el k-ésimo load de esa arena en el pozo". Su identidad no cambia
-   aunque cambie el diseño: lo que se recalcula es para qué etapa sirve y a qué hora hay que asignarlo.
+   Model grain: ONE row = ONE load (slot) that has to be assigned to cover the well design.
+   Slot k of a sand is "the k-th load of that sand on this well". Its identity never changes
+   when the design changes: what gets recalculated is which stage it serves and when to assign it.
 
-   Cadena de cálculo por slot:
-     lbs acumuladas antes del slot  →  posición en el pozo donde esa arena empieza a consumirse (pos)
-     pos − etapas de colchón        →  hora en que el load debe estar en locación (nb)
-     nb − lead time de la arenera   →  hora límite para asignarlo (ab)
-   El prefill es la excepción: esos loads se reparten en la ventana prefill → inicio de frac. */
+   Per-slot chain:
+     lbs accumulated before the slot  →  well position where that sand starts being pumped (pos)
+     pos − buffer stages              →  time the load has to be on location (nb)
+     nb − mine lead time              →  assign-by time (ab)
+   The prefill is the exception: those loads are spread across the prefill → frac start window. */
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -20,7 +20,7 @@
   const MIN = 60e3, HOUR = 3600e3, DAY = 86400e3;
   const LBS_PER_TON = 2000;
 
-  /* ============================== zona horaria ============================== */
+  /* ============================== time zone ============================== */
   const _dtf = {};
   function dtfFor(tz) {
     if (!_dtf[tz]) {
@@ -31,14 +31,31 @@
     }
     return _dtf[tz];
   }
-  function wallParts(epoch, tz) {
+  function slowParts(epoch, tz) {
     const o = {};
     for (const p of dtfFor(tz).formatToParts(new Date(epoch))) o[p.type] = p.value;
-    return { y: +o.year, mo: +o.month, d: +o.day, h: (+o.hour) % 24, mi: +o.minute, s: +o.second, wd: o.weekday };
+    return { y: +o.year, mo: +o.month, d: +o.day, h: (+o.hour) % 24, mi: +o.minute, s: +o.second };
   }
+  /* The UTC offset only changes at a zone transition, and those fall on a quarter hour. So the offset
+     is asked from Intl once per 15-minute bucket and cached; wall parts then come from plain UTC math.
+     Intl.formatToParts on every slot was most of the model's build time. */
+  const Q15 = 15 * 60e3, _off = new Map();
   function tzOffset(epoch, tz) {
-    const p = wallParts(epoch, tz);
-    return Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi, p.s) - Math.floor(epoch / 1000) * 1000;
+    const qb = Math.floor(epoch / Q15);
+    const key = tz + '|' + qb;
+    let o = _off.get(key);
+    if (o === undefined) {
+      const t = qb * Q15, p = slowParts(t, tz);
+      o = Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi, p.s) - t;
+      if (_off.size > 50000) _off.clear();
+      _off.set(key, o);
+    }
+    return o;
+  }
+  const WDS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function wallParts(epoch, tz) {
+    const d = new Date(epoch + tzOffset(epoch, tz));
+    return { y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes(), s: d.getUTCSeconds(), wd: WDS[d.getUTCDay()] };
   }
   function wallToEpoch(y, mo, d, h, mi, s, tz) {
     const guess = Date.UTC(y, mo - 1, d, h || 0, mi || 0, s || 0);
@@ -48,14 +65,14 @@
     if (off2 !== off) t = guess - off2;
     return t;
   }
-  /* Acepta: epoch · Date · ISO con zona · 'YYYY-MM-DD HH:mm' · 'M/D/YYYY H:mm[:ss] [AM|PM]' · serial de Excel.
-     Todo lo que no trae zona se lee como hora de pared en `tz`. */
+  /* Accepts: epoch · Date · ISO with zone · 'YYYY-MM-DD HH:mm' · 'M/D/YYYY H:mm[:ss] [AM|PM]' · Excel serial.
+     Anything without a zone is read as wall time in `tz`. */
   function parseWall(v, tz) {
     if (v == null || v === '') return null;
     if (v instanceof Date) return isNaN(v) ? null : v.getTime();
     if (typeof v === 'number') {
       if (v > 1e11) return v;                               // epoch ms
-      if (v > 20000 && v < 80000) {                         // serial de Excel (días desde 1899-12-30)
+      if (v > 20000 && v < 80000) {                         // Excel serial (days since 1899-12-30)
         const ms = Math.round((v - 25569) * DAY);
         const u = new Date(ms);
         return wallToEpoch(u.getUTCFullYear(), u.getUTCMonth() + 1, u.getUTCDate(), u.getUTCHours(), u.getUTCMinutes(), u.getUTCSeconds(), tz);
@@ -88,15 +105,15 @@
     const p = wallParts(epoch, tz);
     return p.y + '-' + pad2(p.mo) + '-' + pad2(p.d) + 'T' + pad2(p.h) + ':' + pad2(p.mi);
   }
-  /* Turno operativo: Día = [inicio, inicio+12h) · Noche = [inicio+12h, inicio+24h).
-     La madrugada pertenece a la noche del día operativo anterior. */
+  /* Operating shift: Day = [start, start+12h) · Night = [start+12h, start+24h).
+     Early morning belongs to the night of the previous operating day. */
   function shiftOf(epoch, tz, startHour) {
     const sh = startHour == null ? 6 : startHour;
     const p = wallParts(epoch, tz);
     const minOfDay = p.h * 60 + p.mi;
     const startMin = sh * 60;
     let base = epoch;
-    if (minOfDay < startMin) base = epoch - DAY;       // madrugada → día operativo anterior
+    if (minOfDay < startMin) base = epoch - DAY;       // early morning → previous operating day
     const bp = wallParts(base, tz);
     const opDay = bp.y + '-' + pad2(bp.mo) + '-' + pad2(bp.d);
     const rel = ((minOfDay - startMin) + 1440) % 1440;
@@ -105,7 +122,7 @@
     return { key: opDay + '|' + shift, day: opDay, shift: shift, start: shiftStart };
   }
 
-  /* ============================== normalización ============================== */
+  /* ============================== normalization ============================== */
   function normText(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' '); }
   function normProduct(v) {
     const t = normText(v);
@@ -145,7 +162,7 @@
     return null;
   }
 
-  /* ============================== estadística ============================== */
+  /* ============================== statistics ============================== */
   function nums(a) { return a.filter(x => x != null && isFinite(x)); }
   function mean(a) { const v = nums(a); return v.length ? v.reduce((p, q) => p + q, 0) / v.length : null; }
   function median(a) {
@@ -161,11 +178,11 @@
     return !w || normText(l.wl) === w;
   }
 
-  /* Estadística por arenera y por arena a partir de los loads OMMA.
-     · payload: todos los loads de la arenera/arena (el peso no depende del pozo)
-     · tiempos: sólo los loads a ESTE pozo (el tránsito depende de la ruta); si no hay, todos
-     · ciclo: entregas consecutivas del mismo truck en la misma arenera, con la siguiente
-       aceptación ≤ 3 h después de entregar (trabajo continuo) */
+  /* Statistics per mine and per sand from the OMMA loads.
+     · payload: every load from that mine/sand (weight does not depend on the well)
+     · times: only loads to THIS well (transit depends on the route); if none, all of them
+     · cycle: consecutive deliveries by the same truck from the same mine, with the next
+       acceptance ≤ 3 h after delivering (continuous work) */
   function computeStats(loads, cfg) {
     const out = { mines: {}, sands: {}, n: loads.length, range: null };
     const ts = loads.map(l => l.d || l.a).filter(Boolean);
@@ -186,7 +203,7 @@
         }
       });
       out.mines[mine.id] = {
-        n: L.length, nTimes: T.length, timesScope: J.length ? 'pozo' : 'todas',
+        n: L.length, nTimes: T.length, timesScope: J.length ? 'well' : 'all',
         payload: summary(L.map(l => l.w > 0 ? l.w : null)),
         term: summary(T.map(l => l.tm)), transit: summary(T.map(l => l.tx)), dest: summary(T.map(l => l.td)),
         lead: summary(lead), cycle: summary(cyc), idle: summary(idle),
@@ -200,7 +217,7 @@
     return out;
   }
 
-  /* Parámetros efectivos por arena, con su fuente (manual · plan · dato · arenera · estimado). */
+  /* Effective parameters per sand, with their source (manual · plan · data · mine · estimated · assumed). */
   function resolveParams(cfg, stats) {
     const P = {};
     const ov = cfg.overrides || {};
@@ -210,21 +227,21 @@
       let payload, pSrc;
       const po = ov.payload && +ov.payload[s];
       if (po > 0) { payload = po; pSrc = 'manual'; }
-      else if (ss.payload && ss.payload.n) { payload = ss.payload.mean; pSrc = 'dato'; }
-      else if (ms.payload && ms.payload.n) { payload = ms.payload.mean; pSrc = 'arenera'; }
-      else { payload = 50000; pSrc = 'supuesto'; }
+      else if (ss.payload && ss.payload.n) { payload = ss.payload.mean; pSrc = 'data'; }
+      else if (ms.payload && ms.payload.n) { payload = ms.payload.mean; pSrc = 'mine'; }
+      else { payload = 50000; pSrc = 'assumed'; }
       let leadMin, lSrc;
       const lo = ov.leadMin && +ov.leadMin[mine];
       if (lo > 0) { leadMin = lo; lSrc = 'manual'; }
-      else if (ms.lead && ms.lead.n) { leadMin = ms.lead.median; lSrc = 'dato'; }
-      else { leadMin = Math.round(((mcfg.miles || 60) * 2 / 45) * 60 + 120); lSrc = 'estimado'; }
+      else if (ms.lead && ms.lead.n) { leadMin = ms.lead.median; lSrc = 'data'; }
+      else { leadMin = Math.round(((mcfg.miles || 60) * 2 / 45) * 60 + 120); lSrc = 'estimated'; }
       let cycleMin, cSrc;
-      if (ms.cycle && ms.cycle.n) { cycleMin = ms.cycle.median; cSrc = 'dato'; }
-      else { cycleMin = leadMin; cSrc = 'estimado'; }
+      if (ms.cycle && ms.cycle.n) { cycleMin = ms.cycle.median; cSrc = 'data'; }
+      else { cycleMin = leadMin; cSrc = 'estimated'; }
       let lptd, tSrc;
       const lp = cfg.loadsPerTruckDay && +cfg.loadsPerTruckDay[s];
       if (lp > 0) { lptd = lp; tSrc = 'plan'; }
-      else { lptd = 1440 / cycleMin; tSrc = cSrc === 'dato' ? 'dato' : 'estimado'; }
+      else { lptd = 1440 / cycleMin; tSrc = cSrc === 'data' ? 'data' : 'estimated'; }
       P[s] = {
         id: s, label: sd.label, mine: mine, mineName: mcfg.name || mine,
         payload, payloadSrc: pSrc, leadMin, leadMs: leadMin * MIN, leadSrc: lSrc,
@@ -234,7 +251,7 @@
     return P;
   }
 
-  /* ============================== diseño del pozo ============================== */
+  /* ============================== well design ============================== */
   function stageTable(cfg) {
     const N = Math.max(1, Math.round(+(cfg.job && cfg.job.totalStages) || 0));
     const ids = cfg.sands.map(s => s.id);
@@ -245,9 +262,9 @@
     const issues = [];
     (cfg.segments || []).forEach((sg, i) => {
       const a = Math.max(1, Math.round(+sg.from)), b = Math.min(N, Math.round(+sg.to));
-      if (!(a <= b)) { issues.push({ lvl: 'err', txt: 'Tramo ' + (i + 1) + ': rango de etapas inválido (' + sg.from + '–' + sg.to + ')' }); return; }
+      if (!(a <= b)) { issues.push({ lvl: 'err', txt: 'Segment ' + (i + 1) + ': invalid stage range (' + sg.from + '–' + sg.to + ')' }); return; }
       for (let j = a; j <= b; j++) {
-        if (segOf[j] >= 0) issues.push({ lvl: 'err', txt: 'Etapa ' + j + ' está en dos tramos (' + (segOf[j] + 1) + ' y ' + (i + 1) + ')' });
+        if (segOf[j] >= 0) issues.push({ lvl: 'err', txt: 'Stage ' + j + ' is in two segments (' + (segOf[j] + 1) + ' and ' + (i + 1) + ')' });
         segOf[j] = i;
         pace[j] = +sg.pace;
         ids.forEach(s => { d[s][j] = Math.max(0, +((sg.lbs || {})[s]) || 0); });
@@ -255,7 +272,7 @@
     });
     let gaps = [];
     for (let j = 1; j <= N; j++) if (segOf[j] < 0) gaps.push(j);
-    if (gaps.length) issues.push({ lvl: 'err', txt: 'Etapas sin diseño: ' + compactRanges(gaps) + ' (se cuentan en 0 lbs)' });
+    if (gaps.length) issues.push({ lvl: 'err', txt: 'Stages with no design: ' + compactRanges(gaps) + ' (counted as 0 lb)' });
     let last = 0;
     for (let j = 1; j <= N; j++) { if (pace[j] > 0) { last = pace[j]; break; } }
     for (let j = 1; j <= N; j++) {
@@ -278,9 +295,9 @@
     }
     return out.join(', ');
   }
-  /* Posición del pozo (en etapas, continua) donde el consumo acumulado de una arena SUPERA L.
-     Con L = lbs ya entregadas, es hasta dónde alcanza esa arena. Etapas sin consumo de la arena
-     se cruzan gratis: 40/70 con 0 lbs cubre hasta la 30 porque no se usa antes de la 31. */
+  /* Well position (in stages, continuous) where a sand's cumulative consumption EXCEEDS L.
+     With L = lbs already on hand, it is how far that sand covers. Stages that do not use the sand
+     are crossed for free: 40/70 with 0 lb covers through stage 30 because it is not used before 31. */
   function posOf(prefix, N, L) {
     if (!(L < prefix[N] - 1e-6)) return N;
     let lo = 1, hi = N;
@@ -290,8 +307,8 @@
     return k + (span > 0 ? Math.max(0, L - prefix[k]) / span : 0);
   }
 
-  /* Calendario del pozo: fronteras de etapa B[k] (fin de la etapa k). Se ancla en el último
-     reporte real de etapa; sin reportes, en el inicio de frac del plan. */
+  /* Well calendar: stage boundaries B[k] (end of stage k). Anchored on the latest actual stage
+     report; with no reports, on the planned frac start. */
   function schedule(tb, cfg, st, tz) {
     const N = tb.N;
     const dur = new Float64Array(N + 1);
@@ -323,7 +340,7 @@
     return { B, dur, T, X, fracStart, anchor, reports };
   }
 
-  /* ============================== modelo completo ============================== */
+  /* ============================== full model ============================== */
   function build(cfg, st, now) {
     now = now == null ? Date.now() : now;
     st = st || {};
@@ -333,10 +350,10 @@
     const sc = schedule(tb, cfg, st, tz);
     const loads = (st.omma && st.omma.loads) || [];
     const stats = computeStats(loads, cfg);
-    const fileTo = stats.range ? stats.range.to : null;    // corte del archivo de loads OMMA
+    const fileTo = stats.range ? stats.range.to : null;    // cut-off of the OMMA loads file
     const P = resolveParams(cfg, stats);
     const PS = parseWall(cfg.schedule && cfg.schedule.prefillStart, tz);
-    const PE = parseWall(cfg.schedule && cfg.schedule.prefillEnd, tz);   // fin del prefill (opcional)
+    const PE = parseWall(cfg.schedule && cfg.schedule.prefillEnd, tz);   // prefill end (optional)
     const FS = sc.fracStart;
     const buffer = Math.max(0, +cfg.bufferStages || 0);
     const alertMs = Math.max(0, +cfg.alertHours || 0) * HOUR;
@@ -348,14 +365,14 @@
     const trackedId = tracked[0] || 'OMMA';
     const warnings = tb.issues.slice();
 
-    /* entregas OMMA a este pozo; cuentan como arena del diseño sólo las posteriores al corte */
+    /* OMMA deliveries to this well; only those after the cut-off count as design sand */
     const wellLoads = loads.filter(l => l.s && tb.prefix[l.s] && isJobLoad(l, cfg));
     const jobLoads = wellLoads.filter(l => !countFrom || (l.d || l.a) >= countFrom);
-    /* PO por arena: el capturado en el diseño manda; si no hay, el del load más reciente del export */
+    /* PO per sand: the one set in the design wins; otherwise the latest load in the export */
     const poCfg = cfg.po || {}, poDet = {};
     wellLoads.slice().sort((a, b) => (a.d || a.a || 0) - (b.d || b.a || 0)).forEach(l => { if (l.po) poDet[l.s] = String(l.po); });
 
-    /* asignaciones por arena */
+    /* assignments per sand */
     const asgBySand = {};
     const invalid = [];
     Object.keys(st.asg || {}).forEach(id => {
@@ -373,8 +390,8 @@
       const asgList = (asgBySand[s] || []).sort((a, b) => a.k - b.k);
       const asgMap = new Map(asgList.map(a => [a.k, a]));
       const maxK = asgList.length ? asgList[asgList.length - 1].k : 0;
-      /* las entregas OMMA se casan, en orden, con lo asignado a OMMA o sin carrier (despacho no
-         siempre captura el carrier: un load sin carrier puede ser de OMMA) */
+      /* OMMA deliveries are matched, in order, to loads assigned to OMMA or with no carrier (dispatch
+         does not always enter the carrier: a load without a carrier can be an OMMA load) */
       const trackedK = asgList.filter(a => tracked.includes(a.rec.c) || !a.rec.c).map(a => a.k);
       const ommaK = asgList.filter(a => tracked.includes(a.rec.c)).length;
       const del = jobLoads.filter(l => l.s === s).sort((a, b) => (a.d || a.a) - (b.d || b.a));
@@ -386,7 +403,7 @@
       const pfEnd = PE != null ? PE : FS - pr.leadMs;
       const pfWin = (PS != null && FS != null) ? pfEnd - PS : 0;
       if (prefillN > 0 && R > 0 && !(pfWin > 0)) {
-        warnings.push({ lvl: 'warn', txt: 'Prefill ' + sd.label + ': la ventana prefill → inicio de frac es menor al lead time (' + fmtDur(pr.leadMin) + '). Se asigna todo al abrir el prefill.' });
+        warnings.push({ lvl: 'warn', txt: 'Prefill ' + sd.label + ': the prefill → frac start window is shorter than the lead time (' + fmtDur(pr.leadMin) + '). Everything is assigned when the prefill opens.' });
       }
       const list = [];
       let cum = 0;
@@ -415,7 +432,7 @@
         let status;
         if (!needed) status = 'extra';
         else if (a) {
-          /* OMMA sin entrega registrada aunque su llegada cayó antes del corte del archivo: sigue "en camino" */
+          /* OMMA with no recorded delivery although its arrival fell before the file cut-off: still "en route" */
           const eta = a.t + pr.leadMs;
           const noRecord = tracked.includes(a.rec.c) && fileTo != null && eta <= fileTo;
           status = dl ? 'del' : (eta > now || noRecord ? 'eta' : 'arr');
@@ -440,14 +457,14 @@
       const assigned = list.filter(x => x.asg);
       const asgLbs = assigned.reduce((p, x) => p + x.w, 0);
       const ommaLbs = del.reduce((p, l) => p + (l.w || 0), 0);
-      /* entregado estimado = entregas reales de OMMA + lo asignado cuya llegada estimada ya pasó.
-         Un load OMMA sin entrega en el archivo sólo se estima entregado si su llegada cae después del
-         corte del archivo (si cayó antes y no aparece, no llegó). */
+      /* estimated delivered = actual OMMA deliveries + assigned loads whose estimated arrival has passed.
+         An OMMA load with no delivery in the file only counts as delivered if its arrival falls after the
+         file cut-off (if it fell before and is missing, it did not arrive). */
       const estArr = assigned.filter(x => x.eta != null && x.eta <= now && !x.delivered &&
         (!tracked.includes(x.carrier) || fileTo == null || x.eta > fileTo));
       const estLbs = ommaLbs + estArr.reduce((p, x) => p + x.w, 0);
       const estN = del.length + estArr.length;
-      /* sugerencia de conciliación: entregas OMMA sin palomear → primeros slots libres */
+      /* reconciliation suggestion: OMMA deliveries not checked off → first free slots */
       const freeK = neededSlots.filter(x => !x.asg).map(x => x.id);
       const reconcile = unmatched.map((l, i) => freeK[i] ? { slot: freeK[i], c: trackedId, t: l.a || l.d, load: l } : null).filter(Boolean);
       sands[s] = {
@@ -462,11 +479,29 @@
         slots: list
       };
     }
-    slots.sort((a, b) => a.ab - b.ab || a.s.localeCompare(b.s) || a.k - b.k);
+    /* Queue order = load number. Assigned loads come first, in the order the shared state received them
+       (the Nth load sent is #N, so 37 assigned means #38 is next); pending loads follow in the order the
+       design needs them (assign-by time). Loads beyond the design (surplus) go last, without a number.
+       The received order (o) is stamped by the reducer, so a slow clock or an offline queue can never
+       renumber what everyone already saw; records from before that counter sort first, by their time. */
+    const byNeed = (a, b) => a.ab - b.ab || a.s.localeCompare(b.s) || a.k - b.k;
+    const ordOf = x => { const o = x.asg && +x.asg.o; return o > 0 && isFinite(o) ? o : null; };
+    const byAssigned = (a, b) => {
+      const oa = ordOf(a), ob = ordOf(b);
+      if (oa == null && ob == null) return a.asgT - b.asgT || byNeed(a, b);
+      if (oa == null) return -1;
+      if (ob == null) return 1;
+      return oa - ob || byNeed(a, b);
+    };
+    const qAsg = slots.filter(x => x.needed && x.asg).sort(byAssigned);
+    const qPen = slots.filter(x => x.needed && !x.asg).sort(byNeed);
+    const qExtra = slots.filter(x => !x.needed).sort(byNeed);
+    slots.length = 0;
+    Array.prototype.push.apply(slots, qAsg.concat(qPen, qExtra));
     Object.keys(asgBySand).forEach(s => asgBySand[s].forEach(a => { if (!a.used) invalid.push(a.id); }));
-    /* orden de asignación: número consecutivo y arena acumulada en locación a lo largo de la cola */
+    /* load number and cumulative sand on location along the queue */
     let seq = 0, cumAll = 0;
-    slots.forEach(x => { if (!x.needed) return; seq++; cumAll += x.w; x.seq = seq; x.cumAll = cumAll; x.po = sands[x.s].po; });
+    slots.forEach(x => { x.po = sands[x.s].po; if (!x.needed) return; seq++; cumAll += x.w; x.seq = seq; x.cumAll = cumAll; });
 
     /* ---------- KPIs ---------- */
     const needed = slots.filter(x => x.needed);
@@ -492,12 +527,19 @@
     kpi.gapLbs = needed.filter(x => x.asg).reduce((p, x) => p + x.w, 0) - kpi.dueLbs;
     kpi.remaining = kpi.reqLoads - kpi.asgNeeded;
     kpi.pct = kpi.reqLoads ? kpi.asgNeeded / kpi.reqLoads : 0;
+    /* final counts: from this share of loads assigned, dispatch confirms the remaining loads with the
+       frac crew. fcAt = the load number that reaches the threshold. */
+    const fcPct = Math.min(100, Math.max(1, +cfg.finalCountsPct || 80)) / 100;
+    kpi.fcPct = fcPct;
+    kpi.fcAt = kpi.reqLoads ? Math.max(1, Math.ceil(fcPct * kpi.reqLoads - 1e-9)) : 0;
+    kpi.fcOn = kpi.reqLoads > 0 && kpi.asgNeeded >= kpi.fcAt;
+    kpi.fcLeft = Math.max(0, kpi.fcAt - kpi.asgNeeded);
     const covOf = basis => Math.min.apply(null, tb.ids.map(s => sands[s].cov[basis]));
     kpi.cov = { asg: covOf('asg'), est: covOf('est'), omma: covOf('omma') };
     kpi.ommaLoads = jobLoads.length;
     kpi.ommaLbs = jobLoads.reduce((p, l) => p + (l.w || 0), 0);
 
-    /* ---------- estado del pozo ---------- */
+    /* ---------- well status ---------- */
     const xNow = sc.X(now);
     const lastRep = sc.reports[sc.reports.length - 1] || null;
     let phase;
@@ -509,21 +551,21 @@
     if (sc.reports.length >= 2) {
       const win = sc.reports.filter(r => r.t >= lastRep.t - DAY);
       const first = win.length >= 2 ? win[0] : sc.reports[sc.reports.length - 2];
-      if (lastRep.t > first.t) pace = { v: (lastRep.n - first.n) / ((lastRep.t - first.t) / DAY), src: 'reportes', from: first.t };
+      if (lastRep.t > first.t) pace = { v: (lastRep.n - first.n) / ((lastRep.t - first.t) / DAY), src: 'reports', from: first.t };
     } else if (lastRep && FS != null && lastRep.t > FS) {
-      pace = { v: lastRep.n / ((lastRep.t - FS) / DAY), src: 'desde inicio de frac', from: FS };
+      pace = { v: lastRep.n / ((lastRep.t - FS) / DAY), src: 'since frac start', from: FS };
     }
     const curStage = Math.min(N, Math.max(0, Math.floor(Math.max(0, xNow) + 1e-9) + (phase === 'done' ? 0 : 1)));
     const segIdx = tb.segOf[Math.max(1, Math.min(N, curStage || 1))];
     const well = {
       N, xNow: Math.max(0, Math.min(N, xNow)), xRaw: xNow, curStage, lastRep, phase, pace,
-      fracStart: FS, prefillStart: PS, end: sc.B[N], anchor: sc.anchor, reports: sc.reports,
+      fracStart: FS, prefillStart: PS, prefillEnd: PE, end: sc.B[N], anchor: sc.anchor, reports: sc.reports,
       segIdx, designPace: tb.pace[Math.max(1, Math.min(N, curStage || 1))]
     };
 
-    /* ---------- plan por tramo: loads/día, trucks, ritmo sostenible ----------
-       Ritmo sostenible = el que aguantan los trucks planeados: trucks × loads/truck/día × payload ÷ lbs por etapa,
-       y manda la arena más corta. Sin plan de trucks para una arena con consumo, no se inventa: queda null. */
+    /* ---------- plan per segment: loads/day, trucks, sustainable pace ----------
+       Sustainable pace = what the planned trucks can hold: trucks × loads/truck/day × payload ÷ lbs per stage,
+       and the shortest sand rules. With no truck plan for a sand that is used, nothing is invented: null. */
     const segPlans = (cfg.segments || []).map((sg, i) => {
       const per = {};
       let sustain = Infinity, limiting = null, complete = true;
@@ -549,7 +591,7 @@
         limiting, complete, days: (sg.to - sg.from + 1) / sg.pace };
     });
 
-    /* ---------- series por día (dispatch) ---------- */
+    /* ---------- daily series (dispatch) ---------- */
     const byDay = {};
     needed.forEach(x => {
       const dk = dayKey(x.ab, tz);
@@ -572,7 +614,7 @@
     };
   }
 
-  /* Serie acumulada requerido vs asignado, por hora, para el gap tracker. */
+  /* Cumulative required vs assigned series, hourly, for the gap tracker. */
   function cumulativeSeries(model, opts) {
     opts = opts || {};
     const unit = opts.unit || 'loads';

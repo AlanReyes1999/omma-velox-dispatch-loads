@@ -1,5 +1,5 @@
-# Sitio estático + una función para el estado compartido de despacho.
-# Desplegar con "Import from Git" (no drag & drop): las funciones sólo se publican así.
+# Static site + one function for the shared dispatch state.
+# Deploy with "Import from Git" (not drag & drop): functions are only published that way.
 [build]
   publish = "public"
   command = ""
@@ -19,7 +19,7 @@
     X-Frame-Options = "SAMEORIGIN"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
-# el service worker se revisa en cada visita para que las actualizaciones lleguen al momento
+# the service worker is checked on every visit so updates arrive right away
 [[headers]]
   for = "/sw.js"
   [headers.values]
