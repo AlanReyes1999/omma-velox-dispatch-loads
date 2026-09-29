@@ -542,6 +542,21 @@ input:focus,select.inp:focus{outline:none;border-color:var(--teal);box-shadow:0 
 .issues.mix li.warn{color:var(--warn)}
 .issues.mix li.err{color:var(--bad)}
 .rep.pdf{background:var(--s3)}
+.upprev details.stlist{border:1px solid var(--line2);border-radius:10px;margin-bottom:10px;background:#fff}
+.upprev details.stlist summary{cursor:pointer;padding:7px 10px;font-family:var(--f-mono);font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#66717F}
+.upprev details.stlist summary b{color:var(--bad)}
+.upprev .strs{max-height:220px;overflow:auto;border-top:1px solid var(--line2)}
+.upprev .str{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:5px 10px;border-bottom:1px solid var(--line2);font-size:11.5px}
+.upprev .str:last-child{border-bottom:0}
+.upprev .str .n{font-family:var(--f-num);font-weight:800}
+.upprev .str .l{color:var(--soft)}
+.upprev .str .l b{color:var(--ink);font-family:var(--f-num)}
+.upprev .str .l em{font-style:normal;color:var(--mut);margin-left:4px}
+.upprev .str .s{font-size:10.5px;color:var(--mut);text-align:right}
+.upprev .str.warn .s{color:var(--warn);font-weight:700}
+.upprev .str.err{background:var(--badbg)}
+.upprev .str.err .s{color:var(--bad);font-weight:700}
+@media (max-width:760px){.upprev .str{grid-template-columns:44px minmax(0,1fr)}.upprev .str .s{grid-column:2;text-align:left}}
 .nw{white-space:nowrap}
 .dstage td.n .sub{font-family:var(--f-ui);font-size:10px;font-weight:600;color:var(--mut);margin-top:2px}
 .dstage tr.cur td{background:#F5FAFB}

@@ -84,6 +84,36 @@ test('stats PDF: sand-first notes, totals with no breakdown, bad rows', () => {
   assert.equal(T.clockOf('22:26'), 1346);
 });
 
+test('stats PDF: stage labels are not lbs, 20-40 and 2040 are 20/40, a short note is filled from the total', () => {
+  /* the Riley PDF of Sep 29 read stages 12 and 13 as "12 lb" and "13 lb" of 100 mesh and 0 of 20/40 */
+  const items = sheet([
+    { n: '12', lbs: '137,671 [1]', start: '9:30 AM', end: '10:35 AM', day: '9/29/2026' },
+    { n: '13', lbs: '137,671 [2]', start: '12:44 PM', end: '1:53 PM', day: '9/29/2026' },
+    { n: '14', lbs: '137,671 [3]', start: '2:25 PM', end: '3:30 PM', day: '9/29/2026' },
+    { n: '15', lbs: '235,151 [4]', start: '4:00 PM', end: '5:30 PM', day: '9/29/2026' },
+    { n: '16', lbs: '140,000 [5]', start: '6:00 PM', end: '7:00 PM', day: '9/29/2026' }
+  ], ['[1] Stage 12 100 mesh - 12,143 lbs 20-40 - 125,528 lbs', '[2] Stage 13 100 mesh', '[3] 12,143 lbs - 100 mesh',
+    '[4] Stage 15 pumped sand - 215,717 lbs - 2040 19,434 lbs - 100M', '[5] Stage 16 - 128,000 lbs - 20/40 12,000 lbs - 100 mesh']);
+  const r = T.parse(items, S.DEFAULT_CONFIG, E, at('2026-09-29T20:00:00-06:00'));
+  const st = n => r.stages.find(s => s.n === n);
+  assert.deepEqual(st(12).lbs, { '100M': 12143, '2040': 125528 }, '"Stage 12" is a label, "20-40" is 20/40');
+  assert.equal(st(12).src, 'notes');
+  assert.equal(st(13).src, 'split', 'a note with no lbs: the total split like the design');
+  assert.equal(st(13).lbs['2040'], Math.round(137671 * 111000 / 121000));
+  assert.equal(st(14).src, 'fill', 'a note short of the total: the rest goes to the sand it does not name');
+  assert.deepEqual(st(14).lbs, { '100M': 12143, '2040': 137671 - 12143 });
+  assert.deepEqual(st(15).lbs, { '2040': 215717, '100M': 19434 }, '2040 and 100M as written');
+  assert.deepEqual(st(16).lbs, { '2040': 128000, '100M': 12000 });
+  const w = n => r.warnings.filter(x => x.n === n).map(x => x.lvl + ': ' + x.txt).join(' | ');
+  assert.match(w(14), /^err: Stage 14: its note reads 100 Mesh 12,143 and the total is 137,671 lb · the 125,528 lb missing go to 20\/40/);
+  assert.match(w(15), /Stage 15: 235,151 lb, 94% over its design \(121,000 lb\) · confirm it with the frac crew/);
+  assert.equal(w(16), '', 'a clean stage says nothing');
+  assert.equal(T.sandId('20 / 40'), '2040');
+  assert.equal(T.sandId('43-100'), '43100', 'an odd mesh stays odd: not in the design, left out');
+  assert.equal(T.sandId('100 Mesh'), '100M');
+  assert.deepEqual(T.pairsOf('Stages 12-13 pumped 100 mesh'), []);
+});
+
 test('reducer: stage stats keep only stage, times and lbs; merge, replace and clear', () => {
   const st = S.initialState();
   const stages = parsed().stages;

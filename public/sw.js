@@ -3,7 +3,7 @@
    · Code and page: network first (with a network the newest version always arrives), cache as backup.
    · Fonts, icons and libraries: cache first (they do not change).
    · The shared state (/api/state) never goes through here: it always goes to the server. */
-const CACHE = 'ovd-shell-v6';
+const CACHE = 'ovd-shell-v7';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'assets/css/fonts.css', 'assets/css/tokens-pastel.css', 'assets/css/components-cards.css', 'assets/css/motion.css', 'assets/css/app.css',

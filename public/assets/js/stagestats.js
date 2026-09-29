@@ -100,18 +100,31 @@
 
   /* "[1] 110,000 lbs - 20/40 11,000 lbs - 100 mesh" → [['20/40', 110000], ['100 mesh', 11000]].
      A note is read both ways, number first (how the crew writes it) and sand first ("20/40: 110,000");
-     the reading that pairs more of it wins, so a number never goes with the sand of the next line. */
-  const SAND = '(\\d{2,3}\\s*\\/\\s*\\d{2,3}|100\\s*(?:mesh|m)\\b)';
+     the reading that pairs more of it wins, so a number never goes with the sand of the next line.
+     Stage labels go first ("Stage 12 100 mesh …" must not read as 12 lb). Sands: 20/40, 20-40, 2040,
+     40/70, 100 mesh, 100M. */
+  const SAND = '(\\d{2}\\s*[\\/\\-\u2013]\\s*\\d{2,3}|\\b(?:1630|2040|3050|4070|4080)\\b|100\\s*(?:mesh|m)\\b)';
   const NUM = '(\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)';
-  const NF = new RegExp(NUM + '\\s*(?:lbs?\\.?|pounds|#)?\\s*[-–—:=]?\\s*' + SAND + '(?![\\d/])', 'gi');
-  const SF = new RegExp(SAND + '(?![\\d/])\\s*(?:sand)?\\s*[-–—:=]?\\s*' + NUM + '\\s*(?:lbs?\\b|pounds|#)?', 'gi');
+  const NF = new RegExp(NUM + '\\s*(?:lbs?\\.?|pounds|#)?\\s*[-\u2013\u2014:=]?\\s*' + SAND + '(?![\\d/])', 'gi');
+  const SF = new RegExp(SAND + '(?![\\d/])\\s*(?:sand)?\\s*[-\u2013\u2014:=]?\\s*' + NUM + '\\s*(?:lbs?\\b|pounds|#)?', 'gi');
+  const STAGE_LABEL = /\b(?:stages?|stg|etapas?)\s*#?\s*\d{1,4}(?![\d,.])(?:\s*(?:[-\u2013&,]|and|y)\s*\d{1,4}(?![\d,.]))?/gi;
+  /* a sand as written → its id: 20/40, 20-40 and 2040 are 2040; 100 mesh and 100M are 100M */
+  function sandId(txt) {
+    const t = String(txt).toLowerCase().replace(/\s+/g, '');
+    if (/^100(mesh|m)$/.test(t)) return '100M';
+    const m = /^(\d{2})[\/\-\u2013]?(\d{2,3})$/.exec(t);
+    if (!m) return null;
+    const a = +m[1], b = +m[2];
+    return a >= 8 && b > a && b <= 200 ? String(a) + String(b) : null;
+  }
   function pairsOf(text) {
+    const tx = String(text || '').replace(STAGE_LABEL, ' ');
     const nf = [], sf = [];
     let m;
     NF.lastIndex = 0;
-    while ((m = NF.exec(text))) nf.push([m[2], +m[1].replace(/,/g, '')]);
+    while ((m = NF.exec(tx))) nf.push([m[2], +m[1].replace(/,/g, '')]);
     SF.lastIndex = 0;
-    while ((m = SF.exec(text))) sf.push([m[1], +m[2].replace(/,/g, '')]);
+    while ((m = SF.exec(tx))) sf.push([m[1], +m[2].replace(/,/g, '')]);
     return sf.length > nf.length ? sf : nf;
   }
 
@@ -126,6 +139,15 @@
     const lbs = {};
     ids.forEach((s, i) => { if (D[i] > 0) lbs[s] = Math.round(tot * D[i] / sum); });
     return lbs;
+  }
+
+  /* the design of stage n: lbs per sand and total */
+  function designOf(cfg, n) {
+    const sg = (cfg.segments || []).find(g => n >= +g.from && n <= +g.to);
+    const o = {};
+    let tot = 0;
+    (cfg.sands || []).forEach(s => { const v = sg ? Math.max(0, +((sg.lbs || {})[s.id]) || 0) : 0; o[s.id] = v; tot += v; });
+    return { lbs: o, tot };
   }
 
   /* Start and end on the calendar. The "Day" column is the day the row was logged: a stage that
@@ -161,8 +183,8 @@
 
   /* items → {title, well, stages[{n, s, e, lbs, tot, src}], warnings[{n, lvl, txt}]}
      s, e: epoch ms (null when the PDF does not say). lbs: {sandId: lb} — null when unknown.
-     src: 'notes' (breakdown from the cell note) · 'single' (one sand in the design) · 'split'
-     (total split like the design) · 'none'. */
+     src: 'notes' (breakdown from the cell note) · 'fill' (a note short of the total, the rest like the
+     design) · 'single' (one sand in the design) · 'split' (total split like the design) · 'none'. */
   function parse(items, cfg, E, now) {
     now = now == null ? Date.now() : now;
     const tz = cfg.tz || 'America/Mexico_City';
@@ -209,13 +231,15 @@
       const tot = numOf(lbsCell.replace(/\[\d+\]/g, ''));
       const ref = (lbsCell.match(/\[(\d{1,4})\]/) || [])[1];
       let lbs = null, src = 'none', noted = false;
+      const dsg = designOf(cfg, n);
+      const lbTxt = o => Object.keys(o).map(k => label(k) + ' ' + fmtN(o[k])).join(' · ');
       if (ref && notes[ref] != null) {
         const pairs = pairsOf(notes[ref]);
         if (pairs.length) {
           noted = true;
           lbs = {};
           pairs.forEach(([sand, v]) => {
-            const id = E.normProduct(sand);
+            const id = sandId(sand);
             if (!id || !sandIds.has(id)) { warn(n, 'Stage ' + n + ': ' + sand.trim() + ' is not a sand in this design · left out'); return; }
             lbs[id] = (lbs[id] || 0) + v;
           });
@@ -223,7 +247,22 @@
           if (!Object.keys(lbs).length) lbs = null;       // only sands outside the design: nothing is guessed
           else {
             src = 'notes';
-            if (tot != null && Math.abs(sum - tot) > 1) warn(n, 'Stage ' + n + ': the total says ' + fmtN(tot) + ' lb and its sands add up to ' + fmtN(sum) + ' lb · the sands are used', 'info');
+            /* a note that falls well short of the total is missing a sand (or was misread): the lbs
+               missing go to the design sands the note does not name, like the design */
+            const miss = Object.keys(dsg.lbs).filter(k => dsg.lbs[k] > 0 && !(k in lbs));
+            if (tot != null && tot > 0 && sum < 0.8 * tot) {
+              const dm = miss.reduce((p, k) => p + dsg.lbs[k], 0);
+              if (dm > 0) {
+                const noteTxt = lbTxt(lbs);
+                miss.forEach(k => { lbs[k] = Math.round((tot - sum) * dsg.lbs[k] / dm); });
+                src = 'fill';
+                warn(n, 'Stage ' + n + ': its note reads ' + noteTxt + ' and the total is ' + fmtN(tot) + ' lb · the ' + fmtN(tot - sum) + ' lb missing go to ' + miss.map(label).join(' and ') + ' · check the note', 'err');
+              } else warn(n, 'Stage ' + n + ': its note adds up to ' + fmtN(sum) + ' lb and the total is ' + fmtN(tot) + ' lb · the note is used · check it', 'err');
+            } else if (tot != null && tot > 0 && sum > 1.2 * tot) {
+              warn(n, 'Stage ' + n + ': its note adds up to ' + fmtN(sum) + ' lb and the total is ' + fmtN(tot) + ' lb · the note is used · check it', 'err');
+            } else if (tot != null && Math.abs(sum - tot) > 1) {
+              warn(n, 'Stage ' + n + ': the total says ' + fmtN(tot) + ' lb and its sands add up to ' + fmtN(sum) + ' lb · the sands are used', 'info');
+            }
           }
         }
       }
@@ -232,8 +271,14 @@
         if (sp) {
           lbs = sp;
           src = Object.keys(sp).length === 1 ? 'single' : 'split';
-          if (src === 'split') warn(n, 'Stage ' + n + ': no breakdown by sand · ' + fmtN(tot) + ' lb split like the design (' + Object.keys(sp).map(k => label(k) + ' ' + fmtN(sp[k])).join(' · ') + ')');
+          if (src === 'split') warn(n, 'Stage ' + n + ': no breakdown by sand · ' + fmtN(tot) + ' lb split like the design (' + lbTxt(sp) + ')');
         }
+      }
+      /* a stage far from its design is worth a look: a heavy stage or a screen-out */
+      if (lbs && dsg.tot > 0) {
+        const st = Object.keys(lbs).reduce((p, k) => p + lbs[k], 0);
+        if (st > 1.6 * dsg.tot) warn(n, 'Stage ' + n + ': ' + fmtN(st) + ' lb, ' + Math.round((st / dsg.tot - 1) * 100) + '% over its design (' + fmtN(dsg.tot) + ' lb) · confirm it with the frac crew');
+        else if (st < 0.5 * dsg.tot) warn(n, 'Stage ' + n + ': ' + fmtN(st) + ' lb, ' + Math.round((1 - st / dsg.tot) * 100) + '% under its design (' + fmtN(dsg.tot) + ' lb) · a screen-out? confirm it with the frac crew');
       }
       const dt = dateOf(c.day) || dateOf(c.start) || dateOf(c.end);
       const pl = place(dt, clockOf(c.start), clockOf(c.end), prevEnd, tz, E);
@@ -296,5 +341,5 @@
     } finally { try { doc.destroy(); } catch (e) {} }
   }
 
-  return { toLines, parse, pairsOf, clockOf, dateOf, readPdf };
+  return { toLines, parse, pairsOf, sandId, clockOf, dateOf, readPdf };
 });

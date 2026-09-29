@@ -68,7 +68,8 @@ Global filters (sand and carrier) and the unit (loads, lbs or tons) apply to eve
 The frac crew's STATISTICS sheet, exported as PDF, goes in **Plan → Stage stats from the frac crew** (drag it or tap to choose it).
 
 - The app reads each stage's start and end and the lbs of each sand from the note on its "Used Pounds" cell (`110,000 lbs - 20/40`, `11,000 lbs - 100 mesh`).
-- Before anything changes, the preview shows what it read and what would change: loads needed per sand, lbs per stage and pace for the stages left, the next load's assign-by time and the well's end. It also lists anything worth checking: a total that does not match its sands, a stage with no end time, a sand outside the design or another well in the title.
+- Before anything changes, the preview shows what it read and what would change: loads needed per sand, lbs per stage and pace for the stages left, the next load's assign-by time and the well's end. It lists every stage as read (lbs per sand and where they came from) and anything worth checking: a note that falls short of its total, a total that does not match its sands, a stage far over or under its design, a stage with no end time, a sand outside the design or another well in the title.
+- Notes are read as the crew writes them: `110,000 lbs - 20/40`, `20/40: 110,000`, `20-40`, `2040`, `100 mesh`, `100M`. A stage label ("Stage 12") is never read as lbs. A note that falls well short of its total gets the missing lbs in the sands it does not name, like the design; a stage with no note gets its total split like the design. Both are flagged in the preview.
 - **Apply and recalculate** applies it for all dispatch; the notice has **Undo**. Each new PDF updates the stages it carries; **Replace all** keeps only the new file's stages. **Clear stage stats** goes back to the design.
 - Two charts compare actual vs design: sand per stage, with a running total vs the design, and stage time (transition + pumping) against the design. Clicking a stage opens its detail.
 
@@ -112,7 +113,7 @@ All of them change in **Plan → Well design** and apply to all dispatch:
 
 ```bash
 npm install
-npm test            # engine, parsers, reducer and function (50 tests)
+npm test            # engine, parsers, reducer and function (51 tests)
 npx netlify dev     # app + function at http://localhost:8888
 ```
 

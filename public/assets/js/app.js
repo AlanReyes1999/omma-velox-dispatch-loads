@@ -2064,6 +2064,14 @@
       chg.push('Well ends <b>' + fDT(M2.sc.B[M2.N]) + '</b>' + (Math.abs(M2.sc.B[M2.N] - M.sc.B[M.N]) > 5 * MIN ? ' (now ' + fDT(M.sc.B[M.N]) + ')' : ''));
     }
     const iss = r.warnings.slice(0, 12);
+    /* every stage as read, so a bad note shows at a glance before anyone applies it */
+    const SRC_ST = { notes: 'note', fill: 'note + total', split: 'total split like the design', single: 'total', none: 'no lbs' };
+    const bad = new Set(r.warnings.filter(w => w.lvl === 'err' && w.n != null).map(w => w.n));
+    const stRows = st.map(x => {
+      const lb = x.lbs ? S.config.sands.filter(s => x.lbs[s.id] != null).map(s => esc(s.label) + ' <b>' + fmt.int(x.lbs[s.id]) + '</b>').join(' · ') : '—';
+      const cls = bad.has(x.n) ? 'err' : x.src === 'notes' || x.src === 'single' ? '' : 'warn';
+      return '<div class="str ' + cls + '"><span class="n">Stg ' + x.n + '</span><span class="l">' + lb + (x.tot != null ? ' <em>total ' + fmt.int(x.tot) + '</em>' : '') + '</span><span class="s">' + esc(SRC_ST[x.src] || x.src) + (x.e == null ? ' · no end' : '') + '</span></div>';
+    }).join('');
     box.innerHTML = '<div class="ttl">' + esc(up.file) + ' <span class="pbadge">PDF · ' + nL(up.pages || 1, 'page', 'pages') + '</span>' + (r.wellMatch === false ? '<span class="pbadge warn">other well?</span>' : '') + '</div>' +
       (r.title ? '<div class="up-sub">' + esc(r.title) + (r.wellMatch ? ' · this well' : '') + '</div>' : '') +
       '<div class="kv"><div><div class="k">Stages</div><div class="v">' + st.length + '</div></div>' +
@@ -2072,6 +2080,7 @@
       '<div><div class="k">Last end</div><div class="v" style="font-size:12px">' + (ends.length ? fDT(ends[ends.length - 1].e) : '—') + '</div></div></div>' +
       (chg.length ? '<div class="chg"><div class="k">What changes</div><ul>' + chg.map(x => '<li>' + x + '</li>').join('') + '</ul></div>' : '') +
       (iss.length ? '<ul class="issues mix">' + iss.map(w => '<li class="' + (w.lvl === 'info' ? 'info' : w.lvl === 'err' ? 'err' : 'warn') + '">' + esc(w.txt) + '</li>').join('') + (r.warnings.length > iss.length ? '<li class="info">… and ' + (r.warnings.length - iss.length) + ' more</li>' : '') + '</ul>' : '') +
+      (st.length ? '<details class="stlist"' + (bad.size ? ' open' : '') + '><summary>Stages as read · ' + st.length + (bad.size ? ' · <b>' + nL(bad.size, 'stage', 'stages') + ' to check</b>' : '') + '</summary><div class="strs">' + stRows + '</div></details>' : '') +
       '<div class="acts">' + (S.actual ? '<div class="seg sm" id="actMode"><button type="button" data-m="merge" class="' + (up.mode !== 'replace' ? 'on' : '') + '">Update these stages</button><button type="button" data-m="replace" class="' + (up.mode === 'replace' ? 'on' : '') + '">Replace all</button></div>' : '') +
       '<button type="button" class="btn primary sm" id="actApply"' + (st.length ? '' : ' disabled') + '>Apply and recalculate</button><button type="button" class="btn sm ghost" id="actCancel">Cancel</button></div>';
     syncSegs();
@@ -2118,6 +2127,7 @@
     rows.push(['Total', lbsTxt(tA) + ' · design ' + fmt.int(tD) + (tD > 0 && Math.abs(tA - tD) > 0.5 ? ' (' + pctTxt((tA - tD) / tD) + ')' : '')]);
     if (!pumped && g && g.n) rows.push(['Forecast', fcHow(g)]);
     if (tm && tm.r.src === 'split') rows.push(['Source', 'total split like the design']);
+    if (tm && tm.r.src === 'fill') rows.push(['Source', 'note + total: the lbs the note misses, like the design']);
     showDetail(evt, 'Stage ' + n + (sp ? ' · Stg ' + sp.from + '–' + sp.to : ''), rows);
   }
   function renderActLbs() {
