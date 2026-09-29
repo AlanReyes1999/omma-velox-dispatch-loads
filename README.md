@@ -83,7 +83,7 @@ The frac crew's STATISTICS sheet, exported as PDF, goes in **Plan → Stage stat
 - **Queue statuses**: *Scheduled*, *Assigned* and *Overdue* (the stage already needed it and it is still unassigned).
 - **PO**: the one set in Plan; if empty, the one from the latest OMMA export for that sand.
 - **Calendar**: with no reports it uses the frac start and the design pace; from the first stage report or stats PDF on it re-anchors to the actual stage, and every known stage end pins it. The stats PDF wins over a report of the same stage.
-- **Stage stats (design + actual)**: a pumped stage counts what the crew pumped of each sand; a stage whose note is missing has its total split like the design. The stages left in each design segment take, per sand, the average of the design and that segment's pumped stages, where the design counts as one stage: (design + Σ pumped) ÷ (1 + stages pumped). The first pumped stage weighs as much as the design and each one after it pulls the forecast toward what the crew really pumps, so the total converges on the sand the well takes. Stages 31–105 keep their design until they start. Stage time works the same way, end to end (transition + pumping), and sets the pace of the stages left. Loads needed, their order, trucks and drivers all follow.
+- **Stage stats (design + actual)**: a pumped stage counts what the crew pumped of each sand; a stage whose note is missing has its total split like the design. The stages left in each design segment (block) take, per sand, a weighted average of the design and that block's pumped stages, (2 × design + 2 × last + Σ the others) ÷ (2 + 2 + the others): the design and the block's last pumped stage count double, every other pumped stage once. The design anchors the forecast while there are few stages, the last stage brings in what the crew is doing now, and as the block fills up its own average takes over, so the total converges on the sand the well takes. Stages 31–105 keep their design until they start. Stage time works the same way, end to end (transition + pumping), and sets the pace of the stages left. Loads needed, their order, trucks and drivers all follow.
 - **Trucks required** = loads/day ÷ loads per truck per day (2 for Iron Oak, from the plan; 20/40 is estimated with the IronHorse cycle).
 - **Drivers and turn rate**: a driver works one 12 h shift a day that can stretch to 14 h (both editable in Plan), and a load keeps a driver for its full load time, assigned → delivered at its mine (the same time the queue uses). Any driver can take any trip, so a shift needs its loads' driver-hours ÷ 14 h, rounded up. A load counts in the shift where it is half done. Drivers per day = day shift + night shift; turn rate = loads per driver per day. By hour: drivers on a load. By stage: loads and driver-hours per stage, the drivers that hold each segment's pace and, with a driver plan per segment (the client's 20 per shift for stages 31–105), the gap and the pace that plan holds.
 
@@ -112,7 +112,7 @@ All of them change in **Plan → Well design** and apply to all dispatch:
 
 ```bash
 npm install
-npm test            # engine, parsers, reducer and function (49 tests)
+npm test            # engine, parsers, reducer and function (50 tests)
 npx netlify dev     # app + function at http://localhost:8888
 ```
 

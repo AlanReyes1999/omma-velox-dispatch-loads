@@ -1951,6 +1951,13 @@
     const i = M.tb.segOf[Math.max(1, Math.min(M.N, n))];
     return i >= 0 ? i : 0;
   }
+  /* how a block's forecast is built: "design ×2 and Stg 7 ×2, the other 6 ×1 (÷ 10)" */
+  function fcHow(g) {
+    const a = M.tb.act;
+    if (!a || !g || !g.n) return null;
+    const rest = g.n - 1;
+    return 'design ×' + a.weight + ' and Stg ' + g.lastN + ' ×' + a.lastWeight + (rest ? ', the other ' + rest + ' ×1' : '') + ' (÷ ' + (a.weight + g.n + a.lastWeight - 1) + ')';
+  }
   /* one stage from the stats: start, end, pumping, transition from the previous end, end to end (ms) */
   function stageTimes(n) {
     const a = M.tb.act;
@@ -2007,7 +2014,7 @@
       '<div><div class="k">Sand pumped</div><div class="v">' + (nums.length ? fmt.numK(lbs) + '<small> lb</small>' : '—') + '</div></div>' +
       '<div><div class="k">Last stage end</div><div class="v" style="font-size:12px">' + (ends.length ? fDT(ends[ends.length - 1].t) : '—') + '</div></div></div>' +
       '<p style="margin:0 0 10px;color:var(--mut)">' + (meta ? 'Last file: <b>' + esc(meta.file || '—') + '</b>' + (meta.at ? ' · ' + fDT(meta.at) : '') + (meta.by ? ' · ' + esc(meta.by) : '') + '. ' : 'No stats uploaded: the queue runs on the design. ') +
-      'Pumped stages count what the crew pumped. The stages left average the design with them, per sand and per segment, and their start and end times set the pace. A segment keeps its design until its first stage is pumped.</p>' +
+      'Pumped stages count what the crew pumped. The stages left blend the design with the pumped stages of their block, per sand: the design and the last pumped stage count double, every other stage once. Stage times set the pace the same way. A block keeps its design until its first stage is pumped.</p>' +
       '<div class="acts"><button type="button" class="btn sm danger" id="actClear"' + (S.actual ? '' : ' disabled') + '>Clear stage stats</button></div>';
   }
   async function handleStatsFile(file) {
@@ -2109,7 +2116,7 @@
       if (v > 0.5 || d > 0) rows.push([esc(s.label), lbsTxt(v) + (Math.abs(v - d) > 0.5 ? ' · design ' + fmt.int(d) + (d > 0 ? ' (' + pctTxt((v - d) / d) + ')' : '') : ' · as designed'), SAND_DARK[s.id]]);
     });
     rows.push(['Total', lbsTxt(tA) + ' · design ' + fmt.int(tD) + (tD > 0 && Math.abs(tA - tD) > 0.5 ? ' (' + pctTxt((tA - tD) / tD) + ')' : '')]);
-    if (!pumped && g && g.n) rows.push(['Forecast', '(design + ' + nL(g.n, 'pumped stage', 'pumped stages') + ') ÷ ' + (g.n + a.weight)]);
+    if (!pumped && g && g.n) rows.push(['Forecast', fcHow(g)]);
     if (tm && tm.r.src === 'split') rows.push(['Source', 'total split like the design']);
     showDetail(evt, 'Stage ' + n + (sp ? ' · Stg ' + sp.from + '–' + sp.to : ''), rows);
   }
@@ -2170,7 +2177,7 @@
               const tm = stageTimes(j), out = [];
               if (tm && tm.r.end != null) out.push((tm.r.start != null ? fDT(tm.r.start) + ' → ' + fTime(tm.r.end) : 'Ended ' + fDT(tm.r.end)) + (tm.pump != null ? ' · pumping ' + durTxt(tm.pump) : ''));
               else out.push((M.well.lastRep && j <= M.well.lastRep.n ? 'Ended ' : 'Expected to end ') + fDT(M.sc.B[j]));
-              if (!isP(j)) out.push(g && g.n ? 'Forecast: (design + ' + nL(g.n, 'pumped stage', 'pumped stages') + ') ÷ ' + (g.n + a.weight) : sp ? 'Design: nothing pumped yet in Stg ' + sp.from + '–' + sp.to : 'Design');
+              if (!isP(j)) out.push(g && g.n ? 'Forecast: ' + fcHow(g) : sp ? 'Design: nothing pumped yet in Stg ' + sp.from + '–' + sp.to : 'Design');
               out.push('click opens the stage →');
               return out;
             }
@@ -2206,15 +2213,16 @@
     const pump = T.map(t => t && t.pump != null ? mn(t.pump) : null);
     const other = T.map(t => t && t.cyc != null && t.pump == null ? mn(t.cyc) : null);
     const des = rows.map(r => { const sp = M.segPlans[M.tb.segOf[r.n]]; return sp ? 1440 / sp.designPace : null; });
-    /* the forecast for the stages left after each stage: (design + end-to-end times so far) ÷ (1 + stages) */
+    /* the forecast for the stages left after each stage: the design and the latest end-to-end time
+       count double, every earlier one of the block once (E.blendStages) */
     const acc = {};
     const fc = rows.map(r => {
       const gi = M.tb.segOf[r.n], sp = M.segPlans[gi];
       if (!sp) return null;
-      const o = acc[gi] || (acc[gi] = { n: 0, s: 0 });
+      const o = acc[gi] || (acc[gi] = []);
       const c = a.cyc[r.n];
-      if (c > 0 && c <= DAY) { o.n++; o.s += c / MIN; }
-      return (a.weight * 1440 / sp.designPace + o.s) / (a.weight + o.n);
+      if (c > 0 && c <= E.MAX_CYCLE) o.push(c / MIN);
+      return E.blendStages(1440 / sp.designPace, o);
     });
     const hasOther = other.some(v => v != null);
     const top = Math.max(60, ...rows.map((r, i) => (trans[i] || 0) + (pump[i] || 0) + (other[i] || 0)), ...des.filter(v => v != null), ...fc.filter(v => v != null));

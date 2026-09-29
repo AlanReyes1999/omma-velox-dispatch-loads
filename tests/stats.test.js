@@ -110,26 +110,38 @@ test('reducer: stage stats keep only stage, times and lbs; merge, replace and cl
   assert.deepEqual(R.apply(S.initialState(), [{ id: 'a8', type: 'actual', stages: [] }]).applied, [], 'an empty merge is refused');
 });
 
-test('design + actual: pumped stages count as pumped, the rest averages design with them', () => {
+test('blend: the design and the last pumped stage of the block count double, the others once', () => {
+  assert.equal(E.DESIGN_WEIGHT, 2);
+  assert.equal(E.LAST_WEIGHT, 2);
+  assert.equal(E.blendStages(100, []), 100, 'nothing pumped: the design');
+  assert.equal(E.blendStages(100, [80]), 90, 'one stage: half design, half that stage');
+  assert.equal(E.blendStages(100, [80, 130]), (200 + 80 + 260) / 5, 'two stages: 40 % design, 40 % the last, 20 % the first');
+  const many = Array(40).fill(120);
+  near(E.blendStages(100, many), (200 + 120 * 41) / 43, 1e-9);
+  assert.ok(E.blendStages(100, many) > 119, 'a full block ends on what was pumped');
+});
+
+test('design + actual: pumped stages count as pumped, the rest blends the design with them', () => {
   const M0 = model();
   const M = model(withStats);
   const g = M.tb.act.seg;
-  /* stages 1–30: (design + 7 pumped) ÷ 8 */
-  near(g[0].fc['2040'], (111000 + 823954) / 8, 1e-6);
-  near(g[0].fc['100M'], (10000 + 54659) / 8, 1e-6);
+  /* stages 1–30: (2 × design + 2 × stage 7 + stages 1–6) ÷ 10 */
+  near(g[0].fc['2040'], (2 * 111000 + 823954 + 131790) / 10, 1e-6);
+  near(g[0].fc['100M'], (2 * 10000 + 54659 + 9004) / 10, 1e-6);
+  assert.equal(g[0].lastN, 7);
   assert.equal(g[0].fc['4070'], 0);
   /* stages 31–105 keep the design until their own stages are pumped */
   assert.deepEqual(g[1].fc, { '100M': 90000, '4070': 169000, '2040': 20000 });
   assert.equal(g[1].on, false);
   assert.equal(M.tb.d['2040'][7], 131790);
-  near(M.tb.d['2040'][8], 116869.25, 1e-6);
-  near(M.tb.R['2040'], 823954 + 23 * 116869.25 + 75 * 20000, 1e-3);
-  near(M.tb.R['100M'], 54659 + 23 * 8082.375 + 75 * 90000, 1e-3);
+  near(M.tb.d['2040'][8], 117774.4, 1e-6);
+  near(M.tb.R['2040'], 823954 + 23 * 117774.4 + 75 * 20000, 1e-3);
+  near(M.tb.R['100M'], 54659 + 23 * 8366.3 + 75 * 90000, 1e-3);
   assert.equal(M.tbd.R['2040'], 4830000, 'the design alone stays available');
-  assert.equal(M.sands['2040'].nNeeded, 98);
+  assert.equal(M.sands['2040'].nNeeded, 99);
   assert.equal(M.sands['100M'].nNeeded, 141);
   assert.equal(M.sands['2040'].nDesign, M0.sands['2040'].nNeeded);
-  assert.equal(M.kpi.reqLoads, 494);
+  assert.equal(M.kpi.reqLoads, 495);
   assert.equal(M.kpi.reqLoadsDesign, 492);
   assert.equal(M.kpi.reqLbsDesign, M0.kpi.reqLbs);
   /* with no stats nothing changes */
@@ -143,8 +155,9 @@ test('design + actual: stage time end to end, the calendar pinned on the PDF sta
   const cycles = [218, 72, 118, 95, 101, 119];                 // stage 2–7, end to end (min)
   assert.equal(g.cycN, 6);
   near(g.actCycle / MIN, cycles.reduce((a, b) => a + b, 0) / 6, 1e-9);
-  near(g.fcCycle / MIN, (1440 / 19 + 723) / 7, 1e-9);
-  near(g.fcPace, 1440 / ((1440 / 19 + 723) / 7), 1e-9);
+  assert.equal(g.lastCycN, 7);
+  near(g.fcCycle / MIN, (2 * 1440 / 19 + 723 + 119) / 9, 1e-9, 'design and stage 7 double');
+  near(g.fcPace, 1440 / ((2 * 1440 / 19 + 723 + 119) / 9), 1e-9);
   assert.equal(M.sc.anchor.k, 7);
   assert.equal(M.sc.anchor.t, at('2026-09-29T00:25:00-06:00'));
   assert.equal(M.sc.B[0], at('2026-09-28T10:53:00-06:00'), 'stage 1 began when the PDF says');
@@ -157,7 +170,7 @@ test('design + actual: stage time end to end, the calendar pinned on the PDF sta
   assert.equal(p.fc, true);
   near(p.pace, g.fcPace, 1e-9);
   assert.equal(p.designPace, 19);
-  near(p.per['2040'].lbs, 116869.25, 1e-6);
+  near(p.per['2040'].lbs, 117774.4, 1e-6);
   assert.equal(p.per['2040'].designLbs, 111000);
   assert.equal(M.segPlans[1].fc, false);
   assert.equal(M.segPlans[1].pace, 19);

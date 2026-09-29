@@ -276,13 +276,22 @@
 
   /* ============================== actual stages (frac crew stats PDF) ==============================
      Per stage: start, end and the lbs pumped of each sand. Pumped stages use what was pumped. The
-     stages still to pump use, per segment and per sand, a running average where the design counts as
-     DESIGN_WEIGHT stages: (design + Σ pumped) ÷ (1 + stages pumped). The first pumped stage weighs the
-     same as the design and every stage after it pulls the forecast toward what the crew really pumps,
-     so the total converges on the sand the well actually takes. A segment with nothing pumped yet keeps
-     its design. Stage time works the same way, end to end (transition + pumping). */
-  const DESIGN_WEIGHT = 1;
+     stages still to pump use, per segment (block) and per sand, a weighted average of the design and
+     the block's pumped stages: the design counts as DESIGN_WEIGHT stages, the last pumped stage of the
+     block as LAST_WEIGHT and every other one once. The design keeps the forecast anchored while there
+     are few stages, the last stage brings in what the crew is doing now, and as the block fills up its
+     own average takes over, so the total converges on the sand the well actually takes. A block with
+     nothing pumped keeps its design. Stage time works the same way, end to end (transition + pumping). */
+  const DESIGN_WEIGHT = 2, LAST_WEIGHT = 2;
   const MAX_CYCLE = DAY;          // more than a day between two stages is a shutdown, not the pace
+  /* vals in stage order (the last one is the latest stage) → weighted forecast; none → the design */
+  function blendStages(design, vals) {
+    const n = vals.length;
+    if (!n) return design;
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += vals[i];
+    return (DESIGN_WEIGHT * design + sum + (LAST_WEIGHT - 1) * vals[n - 1]) / (DESIGN_WEIGHT + n + LAST_WEIGHT - 1);
+  }
   function actualStages(st) {
     const a = st && st.actual;
     const map = new Map();
@@ -348,26 +357,27 @@
       (cfg.segments || []).forEach((sg, i) => {
         const a = Math.max(1, Math.round(+sg.from)), b = Math.min(N, Math.round(+sg.to));
         if (!(a <= b)) return;
-        const des = {}, sum = {};
-        ids.forEach(s => { des[s] = Math.max(0, +((sg.lbs || {})[s]) || 0); sum[s] = 0; });
-        let n = 0, cn = 0, cs = 0, out = 0;
+        const des = {}, sum = {}, vals = {};
+        ids.forEach(s => { des[s] = Math.max(0, +((sg.lbs || {})[s]) || 0); sum[s] = 0; vals[s] = []; });
+        let n = 0, cs = 0, out = 0, lastN = null, lastCycN = null;
+        const cv = [];
         for (let j = a; j <= b; j++) {
           const r = A.get(j);
-          if (pumped[j]) { n++; ids.forEach(s => { sum[s] += Math.max(0, +r.lbs[s] || 0); }); }
+          if (pumped[j]) { n++; lastN = j; ids.forEach(s => { const v = Math.max(0, +r.lbs[s] || 0); sum[s] += v; vals[s].push(v); }); }
           const c = cyc[j];
-          if (c > 0 && c <= MAX_CYCLE) { cn++; cs += c; } else if (isFinite(c)) out++;
+          if (c > 0 && c <= MAX_CYCLE) { cv.push(c); cs += c; lastCycN = j; } else if (isFinite(c)) out++;
         }
-        const K = DESIGN_WEIGHT, fc = {}, avg = {};
-        ids.forEach(s => { fc[s] = (K * des[s] + sum[s]) / (K + n); avg[s] = n ? sum[s] / n : null; });
+        const cn = cv.length, fc = {}, avg = {};
+        ids.forEach(s => { fc[s] = blendStages(des[s], vals[s]); avg[s] = n ? sum[s] / n : null; });
         const dCyc = DAY / (+sg.pace > 0 ? +sg.pace : 19);
-        const fCyc = (K * dCyc + cs) / (K + cn);
+        const fCyc = blendStages(dCyc, cv);
         for (let j = a; j <= b; j++) {
           if (segOf[j] !== i) continue;
           const r = A.get(j);
           ids.forEach(s => { d[s][j] = pumped[j] ? Math.max(0, +r.lbs[s] || 0) : fc[s]; });
           dur[j] = fCyc;
         }
-        seg[i] = { i, from: a, to: b, stages: b - a + 1, n, sum, design: des, avg, fc, cycN: cn, cycSum: cs, cycOut: out,
+        seg[i] = { i, from: a, to: b, stages: b - a + 1, n, lastN, sum, design: des, avg, fc, cycN: cn, cycSum: cs, cycOut: out, lastCycN,
           designCycle: dCyc, fcCycle: fCyc, actCycle: cn ? cs / cn : null, designPace: DAY / dCyc, fcPace: DAY / fCyc, on: n > 0 || cn > 0 };
       });
       /* the calendar runs on each stage's real time: end to end, and for stage 1 its own pumping time,
@@ -380,7 +390,7 @@
       let last = null, nP = 0;
       A.forEach((r, j) => { if (r.end != null) ends.push({ n: j, t: r.end }); if (pumped[j]) { nP++; if (!last || j > last.n) last = r; } });
       ends.sort((x, y) => x.n - y.n);
-      actOut = { A, pumped, cyc, seg, ends, n: nP, last, weight: DESIGN_WEIGHT };
+      actOut = { A, pumped, cyc, seg, ends, n: nP, last, weight: DESIGN_WEIGHT, lastWeight: LAST_WEIGHT };
     }
     ids.forEach(s => {
       const P = new Float64Array(N + 1);
@@ -936,6 +946,6 @@
     normText, normProduct, normMine, parseDuration,
     mean, median, summary, computeStats, resolveParams,
     stageTable, actualStages, posOf, schedule, build, cumulativeSeries, fmtDur, compactRanges,
-    driverHours, driverPlan, DESIGN_WEIGHT
+    driverHours, driverPlan, blendStages, DESIGN_WEIGHT, LAST_WEIGHT, MAX_CYCLE
   };
 });
