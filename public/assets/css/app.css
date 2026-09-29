@@ -529,6 +529,20 @@ input:focus,select.inp:focus{outline:none;border-color:var(--teal);box-shadow:0 
   .ph:has(>.seg) h3{flex:1 1 60%}
 }
 #pDesign{margin-top:14px}
+/* stage stats (frac crew PDF) */
+.actkpis{margin-top:14px}
+#pActual{margin-top:14px}
+.upprev .up-sub{margin:-3px 0 9px;font-size:11.5px;color:var(--mut);font-weight:600}
+.upprev .chg{background:var(--s3);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;margin-bottom:10px}
+.upprev .chg .k{font-family:var(--f-mono);font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#66717F}
+.upprev .chg ul{margin:4px 0 0;padding-left:16px;color:var(--soft);line-height:1.55}
+.upprev .chg b{color:var(--ink)}
+.issues.mix{background:var(--s3);color:var(--soft);font-weight:600;margin-bottom:10px;border:1px solid var(--line2)}
+.issues.mix li.info{color:var(--info)}
+.issues.mix li.warn{color:var(--warn)}
+.issues.mix li.err{color:var(--bad)}
+.rep.pdf{background:var(--s3)}
+.nw{white-space:nowrap}
 .dstage td.n .sub{font-family:var(--f-ui);font-size:10px;font-weight:600;color:var(--mut);margin-top:2px}
 .dstage tr.cur td{background:#F5FAFB}
 .dstage .nowtag{display:inline-block;margin-left:7px;padding:1px 6px;border-radius:6px;background:var(--teal-bg);color:var(--teal);font-family:var(--f-mono);font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;vertical-align:1px}

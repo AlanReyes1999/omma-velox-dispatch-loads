@@ -63,7 +63,7 @@
   const ui = {
     view: 'command', unit: saved.unit || 'loads', carrier: '', basis: saved.basis || 'asg',
     asStatus: 'all', asQuery: '', gapRange: saved.gapRange || '48', sbMode: saved.sbMode === 'sand' || saved.sbMode === 'arena' ? 'sand' : 'general',
-    segPick: null, draft: null, dirty: false, lastLogKey: null, pendingList: false, upload: null,
+    segPick: null, draft: null, dirty: false, lastLogKey: null, pendingList: false, upload: null, stats: null,
     flash: null, bump: null, fold: true, foldIds: null, lastNext: undefined, fcWas: null
   };
   function saveUI() { try { localStorage.setItem(LS_UI, JSON.stringify({ unit: ui.unit, basis: ui.basis, gapRange: ui.gapRange, sbMode: ui.sbMode })); } catch (e) {} }
@@ -577,7 +577,7 @@
         if (!q || !q.loadsPerDay) return;
         it.push('<span class="tk-it"><i style="background:' + SAND_COLOR[s.id] + '"></i>' + esc(s.label) + ' <b>' + nf1.format(q.loadsPerDay) + '</b> LOADS/DAY · 1 EVERY <b>' + E.fmtDur(q.everyMin) + '</b></span>');
       });
-      it.push('<span class="tk-it">DESIGN PACE <b>' + nf1.format(seg.pace) + '</b> STG/DAY' + (seg.sustainPace ? ' · SUSTAINABLE WITH PLANNED TRUCKS <b class="' + (seg.sustainPace < seg.pace ? 'r' : 'g') + '">' + nf1.format(seg.sustainPace) + '</b>' : '') + '</span>');
+      it.push('<span class="tk-it">' + (seg.fc ? 'PACE <b>' + nf1.format(seg.pace) + '</b> STG/DAY · DESIGN <b>' + nf1.format(seg.designPace) + '</b>' : 'DESIGN PACE <b>' + nf1.format(seg.pace) + '</b> STG/DAY') + (seg.sustainPace ? ' · SUSTAINABLE WITH PLANNED TRUCKS <b class="' + (seg.sustainPace < seg.pace ? 'r' : 'g') + '">' + nf1.format(seg.sustainPace) + '</b>' : '') + '</span>');
     }
     if (k.next) it.push('<span class="tk-it">NEXT <b>#' + k.next.seq + ' · ' + esc(sandLabel(k.next.s)) + ' ' + pad3(k.next.k) + '</b> · ASSIGN BY <b class="a">' + fDT(k.next.ab).toUpperCase() + '</b></span>');
     it.push('<span class="tk-it">OVERDUE <b class="' + (k.overdue ? 'r' : 'g') + '">' + k.overdue + '</b> · IN WINDOW <b class="a">' + k.nowWindow + '</b> · NEXT 24 H <b>' + k.next24 + '</b></span>');
@@ -949,6 +949,8 @@
       case 'cfg': return 'Saved the design' + (e.txt ? ': ' + esc(legacy(e.txt)) : '');
       case 'omma': return 'Uploaded OMMA loads: <b>' + e.n + '</b> (total ' + e.total + ')' + tx;
       case 'ommaClear': return 'Cleared the OMMA loads';
+      case 'actual': return e.undo ? 'Undid a stage stats upload (' + e.total + ' stages kept)' : 'Uploaded stage stats: <b>' + e.n + '</b> stages (total ' + e.total + ')' + tx;
+      case 'actualClear': return 'Cleared the stage stats (' + e.n + ' stages)';
       case 'resetAsg': return 'Reset assignments (' + e.n + ')';
       case 'init': return 'Started the shared state';
       case 'fc': return 'Confirmed final counts with the frac crew (<b>' + e.n + '</b> loads assigned)';
@@ -1460,8 +1462,9 @@
     renderReportPanel();
     renderRecon();
   }
+  /* the design alone, from the planned frac start (no reports, no stats) */
   function planX(t) {
-    const base = E.schedule(M.tb, S.config, { stage: [] }, tz());
+    const base = E.schedule(M.tbd, S.config, { stage: [] }, tz());
     return base.X(t);
   }
   function renderCoverageChart() {
@@ -1507,7 +1510,7 @@
   }
   function renderStageChart() {
     const w = M.well, now = Date.now();
-    const plan = E.schedule(M.tb, S.config, { stage: [] }, tz());
+    const plan = E.schedule(M.tbd, S.config, { stage: [] }, tz());
     /* X axis aligned to local midnight, ticks every 12 h or every day depending on the length */
     const mid = t => { const p = wp(t); return E.wallToEpoch(p.y, p.mo, p.d, 0, 0, 0, tz()); };
     const t0 = mid(Math.min(plan.B[0], w.reports.length ? w.reports[0].t : Infinity) - 2 * HOUR);
@@ -1586,8 +1589,11 @@
       if (!tIn.dataset.touched) tIn.value = E.toWallString(Date.now(), tz());
     }
     const reps = w.reports.slice().reverse().slice(0, 30);
-    $('#repBadge').textContent = w.reports.length ? nL(w.reports.length, 'report', 'reports') : 'no reports';
-    $('#repList').innerHTML = reps.length ? reps.map(r => '<div class="rep"><span class="n">' + stg(r.n) + '</span><span class="t">' + fDT(r.t) + '</span><span class="mono mut">' + esc(r.by || '—') + '</span><button type="button" class="x" data-rdel="' + esc(r.id) + '" aria-label="Delete report">×</button></div>').join('')
+    const nPdf = w.reports.filter(r => r.src === 'pdf').length, nMan = w.reports.length - nPdf;
+    $('#repBadge').textContent = !w.reports.length ? 'no reports' : nPdf ? nPdf + ' from PDF' + (nMan ? ' · ' + nMan + ' logged' : '') : nL(nMan, 'report', 'reports');
+    /* stage ends read from the stats PDF have no delete: they change with the next PDF (Plan) */
+    $('#repList').innerHTML = reps.length ? reps.map(r => '<div class="rep' + (r.src === 'pdf' ? ' pdf' : '') + '"><span class="n">' + stg(r.n) + '</span><span class="t">' + fDT(r.t) + '</span>' +
+      (r.src === 'pdf' ? '<span class="mono mut" title="Stage end from the stats PDF (Plan)">PDF</span><span></span>' : '<span class="mono mut">' + esc(r.by || '—') + '</span><button type="button" class="x" data-rdel="' + esc(r.id) + '" aria-label="Delete report">×</button>') + '</div>').join('')
       : '<div class="empty">No reports. The calendar runs on the frac start and the design pace.</div>';
   }
   function renderRecon() {
@@ -1614,19 +1620,23 @@
   /* ============================== PLAN ============================== */
   function renderPlan() {
     const k = M.kpi;
-    $('#plMeta').innerHTML = '<span class="pill">' + M.N + ' stages</span><span class="pill">' + nL(S.config.segments.length, 'segment', 'segments') + '</span>';
+    $('#plMeta').innerHTML = '<span class="pill">' + M.N + ' stages</span><span class="pill">' + nL(S.config.segments.length, 'segment', 'segments') + '</span>' +
+      (M.tb.act ? '<span class="pill">' + nL(M.tb.act.n, 'stage', 'stages') + ' pumped · stats PDF</span>' : '');
+    /* with stage stats: the totals are design + actual; the design alone next to them */
+    const vsD = (n, nd) => M.tb.act ? ' · design <b>' + fmt.int(nd) + '</b>' + (n !== nd ? ' (' + sgn(n - nd) + ')' : '') : '';
     const tot = '<article class="gcard stot a-teal"><div class="l">Well total</div><div class="v">' + uTxt(k.reqLoads, k.reqLbs) + '<small>' + uLbl() + '</small></div>' +
-      '<div class="s"><b>' + fmt.int(k.reqLoads) + '</b> loads · <b>' + fmt.int(k.reqLbs) + '</b> lb · <b>' + nf1.format(k.reqLbs / 2000) + '</b> tons<br>final counts at <b>' + fcPctTxt() + '</b> · load <b>#' + k.fcAt + '</b></div></article>';
+      '<div class="s"><b>' + fmt.int(k.reqLoads) + '</b> loads' + vsD(k.reqLoads, k.reqLoadsDesign) + ' · <b>' + fmt.int(k.reqLbs) + '</b> lb · <b>' + nf1.format(k.reqLbs / 2000) + '</b> tons<br>final counts at <b>' + fcPctTxt() + '</b> · load <b>#' + k.fcAt + '</b></div></article>';
     $('#sandTotals').innerHTML = tot + S.config.sands.map(s => {
       const x = M.sands[s.id];
       return '<article class="gcard stot ' + SAND_ACC[s.id] + '"><div class="l"><i style="background:' + SAND_COLOR[s.id] + '"></i>' + esc(s.label) + ' · ' + esc(mineOf(s.mine).name) + '</div>' +
         '<div class="v">' + uTxt(x.nNeeded, x.R) + '<small>' + uLbl() + '</small></div>' +
-        '<div class="s"><b>' + fmt.int(x.nNeeded) + '</b> loads · <b>' + fmt.int(x.R) + '</b> lb · <b>' + nf1.format(x.R / 2000) + '</b> tons<br>payload ' + fmt.int(x.params.payload) + ' lb ' + srcTag(x.params.payloadSrc) + ' · prefill ' + x.prefillN + ' · PO <b class="mono">' + esc(x.po || '—') + '</b></div></article>';
+        '<div class="s"><b>' + fmt.int(x.nNeeded) + '</b> loads' + vsD(x.nNeeded, x.nDesign) + ' · <b>' + fmt.int(x.R) + '</b> lb · <b>' + nf1.format(x.R / 2000) + '</b> tons<br>payload ' + fmt.int(x.params.payload) + ' lb ' + srcTag(x.params.payloadSrc) + ' · prefill ' + x.prefillN + ' · PO <b class="mono">' + esc(x.po || '—') + '</b></div></article>';
     }).join('');
     attachCardGlow($('#sandTotals'));
     renderDaysChart();
     renderTrucks();
     renderDrivers();
+    renderActual();
     /* the form is not redrawn while someone is in a field: focus would be lost */
     const editing = $('#designForm').contains(document.activeElement);
     if (!ui.draft || (!ui.dirty && !editing)) { ui.draft = Seed.clone(S.config); ui.dirty = false; renderDesignForm(); }
@@ -1698,7 +1708,7 @@
     const need = sands.map(s => p.per[s.id].trucksNeeded);
     const plan = sands.map(s => p.per[s.id].trucksPlanned);
     const parts = sands.filter(s => p.per[s.id].lbs > 0).map(s => { const q = p.per[s.id]; return '<b>' + nf1.format(q.trucksNeeded) + '</b> for ' + esc(s.label) + (q.trucksPlanned != null ? ' (plan ' + q.trucksPlanned + ')' : ' (no plan)'); });
-    $('#trucksDesc').innerHTML = 'At ' + nf1.format(p.pace) + ' stages/day you need ' + parts.join(', ') + '. ' +
+    $('#trucksDesc').innerHTML = 'At ' + nf1.format(p.pace) + ' stages/day' + (p.fc ? ' (design ' + nf1.format(p.designPace) + ', averaged with the stages pumped)' : '') + ' you need ' + parts.join(', ') + '. ' +
       (p.sustainPace != null ? 'With the planned trucks the well holds <b>' + nf1.format(p.sustainPace) + ' stages/day</b>' + (p.sustainPace < p.pace ? ' — <b>' + esc(sandLabel(p.limiting)) + '</b> limits.' : '.') : 'The design has no complete truck plan for this segment.');
     chart('pl_trucks', {
       type: 'bar',
@@ -1727,7 +1737,7 @@
       }
     });
     legend('pl_trucks', [{ label: 'Plan', color: GHOST }, { label: 'Required', swatch: SW.sands(false) }, { label: 'Required > plan', color: '#E08A86', toggle: false }]);
-    chartNote('pl_trucks', { read: p.sustainPace != null && p.sustainPace < p.pace ? 'Short on trucks: at the design pace you need <b>' + nf1.format(sands.reduce((q, s) => q + p.per[s.id].trucksNeeded, 0)) + '</b> and the plan has <b>' + sands.reduce((q, s) => q + (p.per[s.id].trucksPlanned || 0), 0) + '</b>.' : 'The truck plan covers the design pace in this segment, or there is no plan to compare.', kind: 'filter' });
+    chartNote('pl_trucks', { read: p.sustainPace != null && p.sustainPace < p.pace ? 'Short on trucks: at ' + (p.fc ? 'this' : 'the design') + ' pace you need <b>' + nf1.format(sands.reduce((q, s) => q + p.per[s.id].trucksNeeded, 0)) + '</b> and the plan has <b>' + sands.reduce((q, s) => q + (p.per[s.id].trucksPlanned || 0), 0) + '</b>.' : (p.fc ? 'The truck plan covers this pace in this segment, or there is no plan to compare.' : 'The truck plan covers the design pace in this segment, or there is no plan to compare.'), kind: 'filter' });
     $('#cadence').innerHTML = sands.filter(s => p.per[s.id].loadsPerDay > 0).map(s => {
       const q = p.per[s.id];
       return '<div class="cad"><div class="k"><i style="background:' + SAND_COLOR[s.id] + '"></i>' + esc(s.label) + '</div><div class="v">1 every ' + E.fmtDur(q.everyMin) + '</div><div class="s">' + nf1.format(q.loadsPerDay) + ' loads/day · ' + fmt.int(q.lbs) + ' lb/stg</div></div>';
@@ -1903,7 +1913,7 @@
     $('#drvStageTbl').innerHTML = '<thead><tr>' + th.map((c, i) => '<th' + (i ? ' style="text-align:right"' : '') + '>' + c + '</th>').join('') + '</tr></thead><tbody>' +
       (p.segs.length ? p.segs.map((g, i) => '<tr' + (i === ci ? ' class="cur"' : '') + '>' +
         '<td><b>Stg ' + g.from + '–' + g.to + '</b>' + (i === ci ? '<span class="nowtag">now</span>' : '') + '</td>' +
-        '<td class="n">' + nf1.format(g.pace) + '</td>' +
+        '<td class="n">' + nf1.format(g.pace) + (g.fc ? '<div class="sub">design ' + nf1.format(g.designPace) + '</div>' : '') + '</td>' +
         '<td class="n">' + (g.stageMin != null ? E.fmtDur(g.stageMin) : '—') + '</td>' +
         '<td class="n">' + nf1.format(g.loadsPerStage) + '<div class="sub">' + S.config.sands.filter(s => g.perStage[s.id]).map(s => esc(s.label) + ' ' + nf1.format(g.perStage[s.id])).join(' · ') + '</div></td>' +
         '<td class="n">' + nf1.format(g.driverHoursPerStage) + '</td>' +
@@ -1916,6 +1926,352 @@
         '<td class="n">' + (g.plan != null ? (g.gap < 0 ? '<span class="gapneg">' + fmt.int(-g.gap) + ' short</span>' : '<span class="gappos">covered</span>') : '—') + '</td>' +
         '<td class="n">' + (g.planHolds != null ? nf1.format(g.planHolds) + ' stg/day' : '—') + '</td></tr>').join('')
         : '<tr><td colspan="13"><div class="empty">No design segments.</div></td></tr>') + '</tbody>';
+  }
+
+  /* ---------- stage stats from the frac crew (PDF): actual vs design ----------
+     E.stageTable: pumped stages count what was pumped; the stages left in each segment average the
+     design with them (the design counts as one stage), per sand, and the stage time the same way.
+     The upload shows what would change before anyone applies it. */
+  const SX = window.StageStats;
+  const FC_ALPHA = .34, FC_COLOR = '#C88B3D';
+  const pctTxt = v => v == null || !isFinite(v) ? '—' : (v >= 0 ? '+' : '−') + nf1.format(Math.abs(v * 100)) + '%';
+  const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + fmt.int(Math.abs(v));
+  const durTxt = ms => ms == null || !isFinite(ms) ? '—' : E.fmtDur(ms / MIN);
+  /* pumped stages vs the design of those same stages, per sand */
+  function actSums() {
+    const a = M.tb.act, o = {};
+    S.config.sands.forEach(s => { o[s.id] = { act: 0, des: 0 }; });
+    if (a) for (let j = 1; j <= M.N; j++) if (a.pumped[j]) S.config.sands.forEach(s => { o[s.id].act += M.tb.d[s.id][j]; o[s.id].des += M.tb.dd[s.id][j]; });
+    return o;
+  }
+  /* the segment to talk about: the one of the last pumped stage, else the current one */
+  function actSegIdx() {
+    const a = M.tb.act;
+    const n = a && a.last ? a.last.n : Math.max(1, M.well.curStage || 1);
+    const i = M.tb.segOf[Math.max(1, Math.min(M.N, n))];
+    return i >= 0 ? i : 0;
+  }
+  /* one stage from the stats: start, end, pumping, transition from the previous end, end to end (ms) */
+  function stageTimes(n) {
+    const a = M.tb.act;
+    const r = a ? a.A.get(n) : null;
+    if (!r) return null;
+    const p = a.A.get(n - 1);
+    return { r, pump: r.start != null && r.end != null ? r.end - r.start : null,
+      trans: r.start != null && p && p.end != null ? r.start - p.end : null, cyc: a.cyc[n] > 0 ? a.cyc[n] : null };
+  }
+  function renderActual() {
+    const a = M.tb.act, meta = S.actual && S.actual.meta;
+    const sands = S.config.sands.filter(s => sandOn(s.id));
+    const all = sands.length === S.config.sands.length;
+    const card = (acc, l, v, sm, s) => '<article class="gcard stot ' + acc + '"><div class="l">' + l + '</div><div class="v">' + v + (sm ? '<small>' + sm + '</small>' : '') + '</div><div class="s">' + s + '</div></article>';
+    const sums = actSums();
+    const tA = sands.reduce((p, s) => p + sums[s.id].act, 0), tD = sands.reduce((p, s) => p + sums[s.id].des, 0);
+    const gi = actSegIdx(), sp = M.segPlans[gi], g = a && a.seg[gi] ? a.seg[gi] : null;
+    const dCyc = sp ? DAY / sp.designPace : null;
+    const nN = sands.reduce((p, s) => p + M.sands[s.id].nNeeded, 0), nD = sands.reduce((p, s) => p + M.sands[s.id].nDesign, 0);
+    const lN = sands.reduce((p, s) => p + M.sands[s.id].R, 0);
+    const dl = sands.map(s => ({ s, d: M.sands[s.id].nNeeded - M.sands[s.id].nDesign })).filter(x => x.d);
+    $('#actKpis').innerHTML =
+      card('a-teal', 'Stages pumped · stats PDF', a ? fmt.int(a.n) : '0', '/ ' + M.N,
+        a && a.last ? 'last <b>Stg ' + a.last.n + '</b>' + (a.last.end != null ? ' ended <b>' + fDT(a.last.end) + '</b>' : '') + (meta && meta.at ? ' · uploaded ' + fWhen(meta.at) + (meta.by ? ' by ' + esc(meta.by) : '') : '')
+          : 'No stats yet: the design runs the queue. Upload the PDF below.') +
+      card('a-amber', 'Sand pumped vs design', a && tD > 0 ? pctTxt((tA - tD) / tD).replace('%', '') : '—', a && tD > 0 ? '%' : '',
+        a ? sands.filter(s => sums[s.id].act > 0 || sums[s.id].des > 0).map(s => { const x = sums[s.id]; return esc(s.label) + ' <b>' + (x.des > 0 ? pctTxt((x.act - x.des) / x.des) : '+' + lbsTxt(x.act)) + '</b>'; }).join(' · ') + ' · ' + nL(a.n, 'stage', 'stages')
+          : 'Lbs pumped per sand, stage by stage against the design') +
+      card('a-sky', 'Stage time · <span class="nw">Stg ' + (sp ? sp.from + '–' + sp.to : '—') + '</span>', g && g.actCycle ? durTxt(g.actCycle) : durTxt(dCyc), g && g.actCycle ? 'actual' : 'design',
+        !sp ? '—' : g && g.actCycle
+          ? 'design <b>' + durTxt(dCyc) + '</b> · stages left <b>' + durTxt(g.fcCycle) + '</b> = <b>' + nf1.format(g.fcPace) + '</b> stg/day (design ' + nf1.format(sp.designPace) + ')'
+          : '<b>' + nf1.format(sp.designPace) + '</b> stages/day by design · the PDF times replace it') +
+      card('a-coral', 'Loads needed · ' + (all ? 'well' : sands.map(s => esc(s.label)).join(' + ')), uTxt(nN, lN), uLbl(),
+        a ? 'design <b>' + fmt.int(nD) + '</b> loads · <b>' + sgn(nN - nD) + '</b>' + (dl.length ? ' · ' + dl.map(x => esc(x.s.label) + ' <b>' + sgn(x.d) + '</b>').join(' · ') : '')
+          : 'By design · the pumped stages adjust it');
+    attachCardGlow($('#actKpis'));
+    renderActPanel();
+    renderActLbs();
+    renderActTime();
+  }
+  function renderActPanel() {
+    const a = M.tb.act, meta = S.actual && S.actual.meta;
+    const icon = $('#actDrop .drop-ic'); if (icon && !icon.innerHTML) icon.innerHTML = sv(IC.upload, 20);
+    $('#actBadge').textContent = a ? nL(a.n, 'stage', 'stages') + ' pumped' : 'design only';
+    $('#actBadge').className = 'pbadge' + (a ? ' ok' : '');
+    if (ui.stats) return;   // a file is being read or previewed
+    const nums = [];
+    let lbs = 0;
+    if (a) for (let j = 1; j <= M.N; j++) if (a.pumped[j]) { nums.push(j); S.config.sands.forEach(s => { lbs += M.tb.d[s.id][j]; }); }
+    const ends = a ? a.ends : [];
+    $('#actPrev').innerHTML = '<div class="ttl">Stage stats in use</div>' +
+      '<div class="kv"><div><div class="k">Stages pumped</div><div class="v">' + nums.length + '</div></div>' +
+      '<div><div class="k">Stages</div><div class="v" style="font-size:13px">' + (nums.length ? 'Stg ' + E.compactRanges(nums) : '—') + '</div></div>' +
+      '<div><div class="k">Sand pumped</div><div class="v">' + (nums.length ? fmt.numK(lbs) + '<small> lb</small>' : '—') + '</div></div>' +
+      '<div><div class="k">Last stage end</div><div class="v" style="font-size:12px">' + (ends.length ? fDT(ends[ends.length - 1].t) : '—') + '</div></div></div>' +
+      '<p style="margin:0 0 10px;color:var(--mut)">' + (meta ? 'Last file: <b>' + esc(meta.file || '—') + '</b>' + (meta.at ? ' · ' + fDT(meta.at) : '') + (meta.by ? ' · ' + esc(meta.by) : '') + '. ' : 'No stats uploaded: the queue runs on the design. ') +
+      'Pumped stages count what the crew pumped. The stages left average the design with them, per sand and per segment, and their start and end times set the pace. A segment keeps its design until its first stage is pumped.</p>' +
+      '<div class="acts"><button type="button" class="btn sm danger" id="actClear"' + (S.actual ? '' : ' disabled') + '>Clear stage stats</button></div>';
+  }
+  async function handleStatsFile(file) {
+    if (!file) return;
+    if (!/\.pdf$/i.test(file.name || '') && file.type !== 'application/pdf') { ui.stats = { file: file.name, error: 'That is not a PDF. Choose the stats PDF.' }; renderActPreview(); return; }
+    ui.stats = { file: file.name, reading: true };
+    $('#actPrev').innerHTML = '<div class="ttl">Reading ' + esc(file.name) + '…</div><div class="sk" style="height:90px"></div>';
+    try {
+      const { items, pages } = await SX.readPdf(file);
+      const r = SX.parse(items, S.config, E, Date.now());
+      ui.stats = { file: file.name, pages, r, mode: 'merge' };
+    } catch (e) {
+      ui.stats = { file: file.name, error: e && e.message ? e.message : 'Could not read the PDF' };
+    }
+    renderActPreview();
+  }
+  function statsOp(up) { return { type: 'actual', mode: up.mode === 'replace' ? 'replace' : 'merge', stages: up.r.stages, meta: { file: up.file, title: up.r.title } }; }
+  function renderActPreview() {
+    const up = ui.stats, box = $('#actPrev');
+    if (!up || !box || up.reading) return;
+    if (up.error) {
+      box.innerHTML = '<div class="ttl">' + esc(up.file || 'File') + '</div><ul class="issues"><li>' + esc(up.error) + '</li></ul><div class="acts" style="margin-top:10px"><button type="button" class="btn sm ghost" id="actCancel">Close</button></div>';
+      return;
+    }
+    const r = up.r, st = r.stages;
+    /* what changes: the model with the same operation the server will apply */
+    let M2 = null;
+    try {
+      const nx = R.apply(S, [Object.assign({ id: 'preview-' + Date.now(), t: new Date().toISOString(), by: Store.me() || '' }, statsOp(up))]).state;
+      M2 = E.build(nx.config, nx, Date.now());
+    } catch (e) { console.warn('[stats] preview', e); }
+    up.after = M2 ? M2.kpi.reqLoads : null;
+    const pumped = st.filter(x => x.lbs), ends = st.filter(x => x.e != null);
+    const lbsSum = pumped.reduce((p, x) => p + Object.keys(x.lbs).reduce((q, k) => q + x.lbs[k], 0), 0);
+    const chg = [];
+    if (M2) {
+      const k0 = M.kpi, k1 = M2.kpi;
+      const per = S.config.sands.filter(s => M.sands[s.id].nNeeded !== M2.sands[s.id].nNeeded).map(s => esc(s.label) + ' ' + M.sands[s.id].nNeeded + ' → ' + M2.sands[s.id].nNeeded);
+      chg.push('Loads needed <b>' + fmt.int(k0.reqLoads) + ' → ' + fmt.int(k1.reqLoads) + '</b>' + (per.length ? ' (' + per.join(' · ') + ')' : ' · no change'));
+      (M2.tb.act ? M2.tb.act.seg : []).forEach(g => {
+        if (!g || !g.on) return;
+        const lb = S.config.sands.filter(s => g.design[s.id] > 0 || g.fc[s.id] > 0).map(s => esc(s.label) + ' <b>' + fmt.int(Math.round(g.fc[s.id])) + '</b> (design ' + fmt.int(g.design[s.id]) + ')').join(' · ');
+        chg.push('Stg ' + g.from + '–' + g.to + ', stages left: ' + lb + ' lb/stg · <b>' + nf1.format(g.fcPace) + '</b> stg/day (design ' + nf1.format(g.designPace) + ')');
+      });
+      if (k1.next && (!k0.next || k0.next.id !== k1.next.id || Math.abs(k0.next.ab - k1.next.ab) > MIN)) chg.push('Next load <b>' + esc(sandLabel(k1.next.s)) + ' · ' + pad3(k1.next.k) + '</b>: assign by <b>' + fDT(k1.next.ab) + '</b>' + (k0.next && k0.next.id === k1.next.id ? ' (now ' + fDT(k0.next.ab) + ')' : ''));
+      if (k0.overdue !== k1.overdue) chg.push('Overdue <b>' + k0.overdue + ' → ' + k1.overdue + '</b>');
+      chg.push('Well ends <b>' + fDT(M2.sc.B[M2.N]) + '</b>' + (Math.abs(M2.sc.B[M2.N] - M.sc.B[M.N]) > 5 * MIN ? ' (now ' + fDT(M.sc.B[M.N]) + ')' : ''));
+    }
+    const iss = r.warnings.slice(0, 12);
+    box.innerHTML = '<div class="ttl">' + esc(up.file) + ' <span class="pbadge">PDF · ' + nL(up.pages || 1, 'page', 'pages') + '</span>' + (r.wellMatch === false ? '<span class="pbadge warn">other well?</span>' : '') + '</div>' +
+      (r.title ? '<div class="up-sub">' + esc(r.title) + (r.wellMatch ? ' · this well' : '') + '</div>' : '') +
+      '<div class="kv"><div><div class="k">Stages</div><div class="v">' + st.length + '</div></div>' +
+      '<div><div class="k">Range</div><div class="v" style="font-size:13px">' + (st.length ? 'Stg ' + E.compactRanges(st.map(x => x.n)) : '—') + '</div></div>' +
+      '<div><div class="k">Sand pumped</div><div class="v">' + fmt.numK(lbsSum) + '<small> lb</small></div></div>' +
+      '<div><div class="k">Last end</div><div class="v" style="font-size:12px">' + (ends.length ? fDT(ends[ends.length - 1].e) : '—') + '</div></div></div>' +
+      (chg.length ? '<div class="chg"><div class="k">What changes</div><ul>' + chg.map(x => '<li>' + x + '</li>').join('') + '</ul></div>' : '') +
+      (iss.length ? '<ul class="issues mix">' + iss.map(w => '<li class="' + (w.lvl === 'info' ? 'info' : w.lvl === 'err' ? 'err' : 'warn') + '">' + esc(w.txt) + '</li>').join('') + (r.warnings.length > iss.length ? '<li class="info">… and ' + (r.warnings.length - iss.length) + ' more</li>' : '') + '</ul>' : '') +
+      '<div class="acts">' + (S.actual ? '<div class="seg sm" id="actMode"><button type="button" data-m="merge" class="' + (up.mode !== 'replace' ? 'on' : '') + '">Update these stages</button><button type="button" data-m="replace" class="' + (up.mode === 'replace' ? 'on' : '') + '">Replace all</button></div>' : '') +
+      '<button type="button" class="btn primary sm" id="actApply"' + (st.length ? '' : ' disabled') + '>Apply and recalculate</button><button type="button" class="btn sm ghost" id="actCancel">Cancel</button></div>';
+    syncSegs();
+  }
+  function applyStats() {
+    const up = ui.stats;
+    if (!up || !up.r || !up.r.stages.length) return;
+    const prev = S.actual ? Seed.clone(S.actual) : null;
+    const before = M.kpi.reqLoads, after = up.after;
+    Store.dispatch(statsOp(up));
+    ui.stats = null;
+    const undo = pushUndo('stage stats upload', () => Store.dispatch({ type: 'actual', mode: 'replace', stages: prev ? prev.stages : [], meta: prev ? prev.meta : {}, undo: true }));
+    toast('Stage stats applied: <b>' + up.r.stages.length + '</b> stages' + (after != null ? ' · loads <b>' + fmt.int(before) + ' → ' + fmt.int(after) + '</b>' : '') + ' · queue recalculated', { label: 'Undo', fn: undo }, 9000);
+  }
+  function clearStats() {
+    const n = S.actual && S.actual.stages ? S.actual.stages.length : 0;
+    modal('Clear stage stats', '<p>Removes the <b>' + n + '</b> stages read from the stats PDF for all dispatch. The queue goes back to the design (lbs and pace) from the last reported stage.</p>',
+      [{ label: 'Cancel', cls: 'ghost' }, { label: 'Clear', cls: 'danger', fn: () => {
+        const prev = Seed.clone(S.actual);
+        Store.dispatch({ type: 'actualClear' });
+        const undo = pushUndo('clear stage stats', () => Store.dispatch({ type: 'actual', mode: 'replace', stages: prev.stages, meta: prev.meta, undo: true }));
+        toast('Stage stats cleared · the queue runs on the design', { label: 'Undo', fn: undo });
+      } }]);
+  }
+  /* one stage, pumped or to pump: times, lbs per sand against the design and where the forecast comes from */
+  function stageDetail(evt, n) {
+    const a = M.tb.act, tm = stageTimes(n);
+    const pumped = !!(a && a.pumped[n]);
+    const gi = M.tb.segOf[n], sp = M.segPlans[gi], g = a && a.seg[gi];
+    const done = M.well.lastRep && n <= M.well.lastRep.n;
+    const rows = [['Status', pumped ? 'pumped · stats PDF' : done ? 'done · no lbs in the stats' : 'to pump · forecast']];
+    if (tm && tm.r.start != null) rows.push(['Start', fDT(tm.r.start)]);
+    if (tm && tm.r.end != null) rows.push(['End', fDT(tm.r.end)]);
+    if (tm && tm.trans != null) rows.push(['Transition', durTxt(tm.trans)]);
+    if (tm && tm.pump != null) rows.push(['Pumping', durTxt(tm.pump)]);
+    if (tm && tm.cyc != null && sp) rows.push(['End to end', durTxt(tm.cyc) + ' · design ' + durTxt(DAY / sp.designPace)]);
+    if (!tm || tm.r.end == null) rows.push([done ? 'Ended (calendar)' : 'Expected end', fDT(M.sc.B[n])]);
+    let tA = 0, tD = 0;
+    S.config.sands.forEach(s => {
+      const v = M.tb.d[s.id][n], d = M.tb.dd[s.id][n];
+      tA += v; tD += d;
+      if (v > 0.5 || d > 0) rows.push([esc(s.label), lbsTxt(v) + (Math.abs(v - d) > 0.5 ? ' · design ' + fmt.int(d) + (d > 0 ? ' (' + pctTxt((v - d) / d) + ')' : '') : ' · as designed'), SAND_DARK[s.id]]);
+    });
+    rows.push(['Total', lbsTxt(tA) + ' · design ' + fmt.int(tD) + (tD > 0 && Math.abs(tA - tD) > 0.5 ? ' (' + pctTxt((tA - tD) / tD) + ')' : '')]);
+    if (!pumped && g && g.n) rows.push(['Forecast', '(design + ' + nL(g.n, 'pumped stage', 'pumped stages') + ') ÷ ' + (g.n + a.weight)]);
+    if (tm && tm.r.src === 'split') rows.push(['Source', 'total split like the design']);
+    showDetail(evt, 'Stage ' + n + (sp ? ' · Stg ' + sp.from + '–' + sp.to : ''), rows);
+  }
+  function renderActLbs() {
+    const a = M.tb.act, N = M.N, P = M.params;
+    const sands = S.config.sands.filter(s => sandOn(s.id));
+    const uv = (s, lbs) => ui.unit === 'loads' ? lbs / P[s].payload : ui.unit === 'lbs' ? lbs : lbs / E.LBS_PER_TON;
+    const uF = v => ui.unit === 'loads' ? nf1.format(v) + ' loads' : ui.unit === 'lbs' ? fmt.int(Math.round(v)) + ' lb' : nf1.format(v) + ' tons';
+    const uK = v => ui.unit === 'loads' ? nf1.format(v) : ui.unit === 'lbs' ? fmt.numK(v) : nf1.format(v);
+    const idx = [];
+    for (let j = 1; j <= N; j++) idx.push(j);
+    const isP = j => !!(a && a.pumped[j]);
+    const ds = sands.map(s => ({
+      type: 'bar', label: s.label, stack: 'l', yAxisID: 'y', order: 3,
+      data: idx.map(j => uv(s.id, M.tb.d[s.id][j])),
+      backgroundColor: dim(idx.map(j => isP(j) ? SAND_COLOR[s.id] : oA(SAND_COLOR[s.id], FC_ALPHA))),
+      borderRadius: 2, barPercentage: .94, categoryPercentage: .94, maxBarThickness: 18
+    }));
+    const des = idx.map(j => sands.reduce((p, s) => p + uv(s.id, M.tb.dd[s.id][j]), 0));
+    let ce = 0, cd = 0;
+    const gap = idx.map(j => { sands.forEach(s => { ce += uv(s.id, M.tb.d[s.id][j]); cd += uv(s.id, M.tb.dd[s.id][j]); }); return ce - cd; });
+    /* lines on the same axis as the bars (same unit), each in its own stack so none adds onto another */
+    ds.push({ type: 'line', label: 'Design', stack: 'design', data: des, borderColor: PLAN_COLOR, borderDash: [5, 4], borderWidth: 1.6, pointRadius: 0, pointHoverRadius: 3, stepped: 'middle', order: 1, endLabel: false });
+    ds.push({ type: 'line', label: 'Running total vs design', stack: 'gap', data: gap, borderColor: TR_COLOR, backgroundColor: TR_COLOR, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: .2, order: 0,
+      endLabelFmt: v => (v >= 0 ? '+' : '−') + uK(Math.abs(v)) });
+    const last = a && a.last ? a.last.n : 0;
+    $('#actLbsBadge').textContent = a ? 'Stg ' + E.compactRanges(idx.filter(isP)) + ' pumped' : 'design';
+    const yMain = gYf(v => uK(v));
+    yMain.stacked = true;
+    yMain.beginAtZero = true;
+    yMain.grace = '6%';
+    chart('pl_actlbs', {
+      type: 'bar',
+      data: { labels: idx.map(String), datasets: ds },
+      options: {
+        layout: { padding: { top: 16, right: 58 } },
+        scales: {
+          x: Object.assign({}, gX, { stacked: true, ticks: Object.assign({}, gX.ticks, { autoSkip: true, maxTicksLimit: 14, maxRotation: 0 }) }),
+          y: yMain
+        },
+        plugins: {
+          nowLine: { x: last ? last - 0.5 : null, label: 'NOW' },
+          endLabel: { enabled: true, fmt: v => uK(v) },
+          tooltip: tt3({
+            title: it => { const j = it[0].dataIndex + 1; return 'Stage ' + j + ' · ' + (isP(j) ? 'pumped' : 'forecast'); },
+            label: c => {
+              const j = c.dataIndex + 1;
+              if (c.dataset.label === 'Design') return ' Design: ' + uF(c.parsed.y);
+              if (c.dataset.label === 'Running total vs design') return ' Running total vs design: ' + (c.parsed.y >= 0 ? '+' : '−') + uF(Math.abs(c.parsed.y));
+              const s = sands[c.datasetIndex];
+              if (!s) return null;
+              const d = uv(s.id, M.tb.dd[s.id][j]);
+              if (!(c.parsed.y > 1e-9) && !(d > 0)) return null;
+              return ' ' + s.label + ': ' + uF(c.parsed.y) + (Math.abs(c.parsed.y - d) > 1e-6 ? ' · design ' + uF(d) : '');
+            },
+            rows: i => {
+              const j = i + 1, gi = M.tb.segOf[j], sp = M.segPlans[gi], g = a && a.seg[gi];
+              const tm = stageTimes(j), out = [];
+              if (tm && tm.r.end != null) out.push((tm.r.start != null ? fDT(tm.r.start) + ' → ' + fTime(tm.r.end) : 'Ended ' + fDT(tm.r.end)) + (tm.pump != null ? ' · pumping ' + durTxt(tm.pump) : ''));
+              else out.push((M.well.lastRep && j <= M.well.lastRep.n ? 'Ended ' : 'Expected to end ') + fDT(M.sc.B[j]));
+              if (!isP(j)) out.push(g && g.n ? 'Forecast: (design + ' + nL(g.n, 'pumped stage', 'pumped stages') + ') ÷ ' + (g.n + a.weight) : sp ? 'Design: nothing pumped yet in Stg ' + sp.from + '–' + sp.to : 'Design');
+              out.push('click opens the stage →');
+              return out;
+            }
+          })
+        },
+        onClick: (e, els) => { if (!els || !els.length) return; stageDetail(e.native || e, els[0].index + 1); }
+      }
+    });
+    legend('pl_actlbs', sands.map(s => ({ label: s.label, color: SAND_COLOR[s.id] }))
+      .concat([{ label: 'Stages left (forecast)', swatch: 'linear-gradient(90deg,' + sands.map(s => oA(SAND_COLOR[s.id], .45)).join(',') + ')', toggle: false },
+        { label: 'Design', swatch: SW.dash(PLAN_COLOR), line: true }, { label: 'Running total vs design', color: TR_COLOR, line: true }]));
+    let read = 'No stats yet: every stage runs on the design. Upload the stats PDF to compare it with what the frac crew pumps.';
+    if (a) {
+      const sums = actSums();
+      const parts = sands.filter(s => sums[s.id].des > 0).map(s => esc(s.label) + ' <b>' + pctTxt((sums[s.id].act - sums[s.id].des) / sums[s.id].des) + '</b>');
+      const g = a.seg[actSegIdx()];
+      const left = g ? g.stages - g.n : 0;
+      const fcs = g ? sands.filter(s => g.fc[s.id] > 0).map(s => '<b>' + fmt.int(Math.round(g.fc[s.id])) + '</b> of ' + esc(s.label)).join(' and ') : '';
+      const fin = gap[gap.length - 1];
+      const dLoads = sands.reduce((p, s) => p + M.sands[s.id].nNeeded - M.sands[s.id].nDesign, 0);
+      read = 'Pumped vs design: ' + (parts.join(' · ') || '—') + '.' +
+        (g && left > 0 && fcs ? ' The <b>' + left + '</b> stages left in ' + g.from + '–' + g.to + ' take ' + fcs + ' lb per stage.' : '') +
+        ' The well ends at <b>' + (fin >= 0 ? '+' : '−') + uF(Math.abs(fin)) + '</b> vs the design: <b>' + sgn(dLoads) + '</b> ' + (Math.abs(dLoads) === 1 ? 'load' : 'loads') + '.';
+    }
+    chartNote('pl_actlbs', { read, kind: 'detail', act: 'click opens the stage →' });
+  }
+  function renderActTime() {
+    const a = M.tb.act;
+    const rows = a ? Array.from(a.A.values()).filter(r => r.end != null).sort((x, y) => x.n - y.n) : [];
+    const T = rows.map(r => stageTimes(r.n));
+    const mn = v => v == null ? null : v / MIN;
+    const trans = T.map(t => t && t.trans != null && t.trans >= 0 ? mn(t.trans) : null);
+    const pump = T.map(t => t && t.pump != null ? mn(t.pump) : null);
+    const other = T.map(t => t && t.cyc != null && t.pump == null ? mn(t.cyc) : null);
+    const des = rows.map(r => { const sp = M.segPlans[M.tb.segOf[r.n]]; return sp ? 1440 / sp.designPace : null; });
+    /* the forecast for the stages left after each stage: (design + end-to-end times so far) ÷ (1 + stages) */
+    const acc = {};
+    const fc = rows.map(r => {
+      const gi = M.tb.segOf[r.n], sp = M.segPlans[gi];
+      if (!sp) return null;
+      const o = acc[gi] || (acc[gi] = { n: 0, s: 0 });
+      const c = a.cyc[r.n];
+      if (c > 0 && c <= DAY) { o.n++; o.s += c / MIN; }
+      return (a.weight * 1440 / sp.designPace + o.s) / (a.weight + o.n);
+    });
+    const hasOther = other.some(v => v != null);
+    const top = Math.max(60, ...rows.map((r, i) => (trans[i] || 0) + (pump[i] || 0) + (other[i] || 0)), ...des.filter(v => v != null), ...fc.filter(v => v != null));
+    const step = top <= 150 ? 30 : top <= 360 ? 60 : 120;
+    const hT = v => v % 60 === 0 ? (v / 60) + ' h' : E.fmtDur(v);
+    $('#actTimeBadge').textContent = rows.length ? nL(rows.length, 'stage', 'stages') + ' timed' : 'design pace';
+    const ds = [
+      { type: 'bar', label: 'Transition', stack: 't', data: trans, backgroundColor: dim(rows.map(() => '#9CCFD8')), borderRadius: 3, maxBarThickness: 36, order: 3 },
+      { type: 'bar', label: 'Pumping', stack: 't', data: pump, backgroundColor: dim(rows.map(() => '#1E6B7A')), borderRadius: 3, maxBarThickness: 36, order: 3 }
+    ];
+    if (hasOther) ds.push({ type: 'bar', label: 'End to end (no start time)', stack: 't', data: other, backgroundColor: dim(rows.map(() => '#C8D0DA')), borderRadius: 3, maxBarThickness: 36, order: 3 });
+    ds.push({ type: 'line', label: 'Design', stack: 'design', data: des, borderColor: PLAN_COLOR, borderDash: [5, 4], borderWidth: 1.6, pointRadius: 0, pointHoverRadius: 3, stepped: 'middle', order: 1, endLabel: false });
+    ds.push({ type: 'line', label: 'Forecast', stack: 'fc', data: fc, borderColor: FC_COLOR, backgroundColor: FC_COLOR, borderWidth: 2.2, pointRadius: 3, pointHoverRadius: 6, tension: .25, order: 0, endLabelFmt: v => E.fmtDur(v) });
+    chart('pl_acttime', {
+      type: 'bar',
+      data: { labels: rows.map(r => 'Stg ' + r.n), datasets: ds },
+      options: {
+        layout: { padding: { top: 12, right: 64 } },
+        scales: {
+          x: Object.assign({}, gX, { stacked: true, ticks: Object.assign({}, gX.ticks, { autoSkip: true, maxRotation: 0 }) }),
+          y: Object.assign(gYf(hT), { stacked: true, beginAtZero: true, suggestedMax: top * 1.08, ticks: Object.assign({}, gY.ticks, { stepSize: step, callback: hT }) })
+        },
+        plugins: {
+          endLabel: { enabled: true, fmt: v => E.fmtDur(v) },
+          tooltip: tt3({
+            title: it => { const r = rows[it[0].dataIndex]; return 'Stage ' + r.n + (r.start != null ? ' · ' + fDT(r.start) + ' → ' + fTime(r.end) : ' · ended ' + fDT(r.end)); },
+            label: c => c.parsed.y == null ? null : ' ' + c.dataset.label + ': ' + E.fmtDur(c.parsed.y),
+            rows: i => {
+              const t = T[i], r = rows[i], out = [];
+              if (t && t.cyc != null) {
+                const d = des[i], cm = t.cyc / MIN;
+                out.push('End to end: ' + E.fmtDur(cm) + (d ? ' · design ' + E.fmtDur(d) + ' (' + (cm >= d ? '+' : '−') + E.fmtDur(Math.abs(cm - d)) + ')' : ''));
+                out.push('At this time: ' + nf1.format(1440 / cm) + ' stages/day');
+                if (t.cyc > DAY) out.push('Over a day: left out of the pace');
+              } else out.push(r.n === 1 || !a.A.get(r.n - 1) ? 'No end of the stage before: no end-to-end time' : 'No end-to-end time');
+              if (fc[i] != null) out.push('Stages left after this one: ' + E.fmtDur(fc[i]) + ' · ' + nf1.format(1440 / fc[i]) + ' stg/day');
+              out.push('click opens the stage →');
+              return out;
+            }
+          })
+        },
+        onClick: (e, els) => { if (!els || !els.length) return; stageDetail(e.native || e, rows[els[0].index].n); }
+      }
+    });
+    legend('pl_acttime', [{ label: 'Transition', color: '#9CCFD8' }, { label: 'Pumping', color: '#1E6B7A' }]
+      .concat(hasOther ? [{ label: 'End to end (no start time)', color: '#C8D0DA' }] : [])
+      .concat([{ label: 'Design', swatch: SW.dash(PLAN_COLOR), line: true }, { label: 'Forecast', color: FC_COLOR, line: true }]));
+    const gi = actSegIdx(), sp = M.segPlans[gi], g = a && a.seg[gi];
+    let read = sp ? 'No stage times yet: the calendar runs on the design, <b>' + nf1.format(sp.designPace) + '</b> stages/day (<b>' + E.fmtDur(1440 / sp.designPace) + '</b> per stage).' : 'No stage times yet.';
+    if (g && g.cycN) {
+      let lt = -1;
+      T.forEach((t, i) => { if (t && t.trans != null && (lt < 0 || t.trans > T[lt].trans)) lt = i; });
+      read = 'Stg ' + g.from + '–' + g.to + ': <b>' + durTxt(g.actCycle) + '</b> end to end on average over ' + nL(g.cycN, 'stage', 'stages') + ', vs <b>' + durTxt(g.designCycle) + '</b> by design (<b>' + nf1.format(DAY / g.actCycle) + '</b> vs <b>' + nf1.format(g.designPace) + '</b> stg/day).' +
+        (lt >= 0 ? ' Longest transition: Stg ' + rows[lt].n + ', <b>' + durTxt(T[lt].trans) + '</b>.' : '') +
+        ' The stages left run at <b>' + durTxt(g.fcCycle) + '</b>: the queue asks for loads ' + (g.fcCycle > g.designCycle ? 'later' : 'sooner') + ' than the design.';
+    }
+    chartNote('pl_acttime', { read, kind: 'detail', act: 'click opens the stage →' });
   }
 
   /* ---------- design editor ---------- */
@@ -1994,7 +2350,8 @@
       const tl = tb.ids.reduce((p, s) => p + tb.R[s], 0);
       const loads = tb.ids.reduce((p, s) => p + Math.ceil(tb.R[s] / M.params[s].payload), 0);
       sum = '<div class="note" style="font-size:12px;color:var(--soft);margin-bottom:8px">With this design: <b>' + fmt.int(tl) + ' lb</b> (' + nf1.format(tl / 2000) + ' tons) · ≈ <b>' + fmt.int(loads) + ' loads</b> at current payloads · ' +
-        tb.ids.map(s => esc(sandLabel(s)) + ' ' + fmt.int(tb.R[s]) + ' lb').join(' · ') + '</div>';
+        tb.ids.map(s => esc(sandLabel(s)) + ' ' + fmt.int(tb.R[s]) + ' lb').join(' · ') +
+        (M.tb.act ? '<br>The pumped stages in the stats PDF (06) adjust it: the queue works on <b>' + fmt.int(M.kpi.reqLoads) + ' loads</b> today.' : '') + '</div>';
     }
     box.innerHTML = sum + (issues.length ? '<ul class="issues">' + issues.map(i => '<li>' + esc(i.txt) + '</li>').join('') + '</ul>' : '<ul class="issues ok"><li>Consistent design: every stage has a segment and a pace.</li></ul>') +
       (ui.dirty ? '<p class="dirty-note">Unsaved changes · they apply to all dispatch when saved.</p>' : '');
@@ -2337,6 +2694,10 @@
         });
         return;
       }
+      const am = t.closest('#actMode button'); if (am) { if (ui.stats) { ui.stats.mode = am.dataset.m; renderActPreview(); } return; }
+      if (t.closest('#actApply')) { applyStats(); return; }
+      if (t.closest('#actCancel')) { ui.stats = null; renderSoon(); return; }
+      if (t.closest('#actClear')) { clearStats(); return; }
       if (t.closest('#sync')) { syncInfo(); return; }
       if (t.closest('#dcClose')) { hideDetail(); return; }
       if (t.closest('[data-retry]')) { const n = t.closest('.retry-note'); if (n) n.remove(); renderSoon(); return; }
@@ -2362,6 +2723,7 @@
       const t = e.target;
       if (t.matches('[data-csel]')) { setCarrier(t.dataset.csel, t.value); return; }
       if (t.matches('#fileIn')) { handleFile(t.files[0]); t.value = ''; return; }
+      if (t.matches('#actIn')) { handleStatsFile(t.files[0]); t.value = ''; return; }
     });
     document.addEventListener('focusout', e => {
       if (e.target.matches && e.target.matches('#asList select') && ui.pendingList) setTimeout(() => { if (!document.activeElement || !document.activeElement.closest('#asList select')) renderQueue(); }, 50);
@@ -2408,6 +2770,10 @@
     ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
     ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
     drop.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleFile(f); });
+    const aDrop = $('#actDrop');
+    ['dragenter', 'dragover'].forEach(ev => aDrop.addEventListener(ev, e => { e.preventDefault(); aDrop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => aDrop.addEventListener(ev, e => { e.preventDefault(); aDrop.classList.remove('over'); }));
+    aDrop.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleStatsFile(f); });
     window.addEventListener('hashchange', () => { const h = viewKey(location.hash); if (h && h !== ui.view) go(h); });
     let rt = 0;
     const setTop = () => document.documentElement.style.setProperty('--top-h', Math.round(topH()) + 'px');

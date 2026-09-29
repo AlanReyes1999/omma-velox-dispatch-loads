@@ -7,5 +7,7 @@ node_modules/
 *.xlsx
 *.csv
 !tests/fixtures/*.xls
+# frac crew stats PDFs: the app keeps only stage, times and lbs per sand; the files stay out of the repo
+*.pdf
 /data/
 /private/

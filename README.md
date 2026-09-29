@@ -1,6 +1,6 @@
 # OMMA · Velox Dispatch — load assignment by well design
 
-App (desktop and phone, installable) for dispatch to assign frac sand loads in the order the well design needs them. The queue is a single numbered sequence where the load number is the order of assignment: the loads already assigned are #1–#37 and **#38 is next**. Each check mark counts the load as sand on location, and the bar on top adds it up, overall or by sand. The app recalculates everything with every check mark, every stage report from the frac crew and every OMMA loads export that gets uploaded.
+App (desktop and phone, installable) for dispatch to assign frac sand loads in the order the well design needs them. The queue is a single numbered sequence where the load number is the order of assignment: the loads already assigned are #1–#37 and **#38 is next**. Each check mark counts the load as sand on location, and the bar on top adds it up, overall or by sand. The app recalculates everything with every check mark, every stage report from the frac crew, every stage stats PDF and every OMMA loads export that gets uploaded.
 
 Starting well: **Riley Horned Frog 5** (Velox), 105 stages, 3 sands:
 
@@ -49,7 +49,7 @@ If the app opens without the function (GitHub Pages, or the `index.html` file fr
 | **Command** | What to assign now: next loads, gap vs cadence, the well's stage spiral, loads en route and the split by sand. |
 | **Assign** | The full queue in the order loads have to be assigned, numbered 1–492, with no days or hours. Columns: #, load, mine, PO, stage, running total on location, status (scheduled / assigned / overdue) and carrier (optional). |
 | **Progress** | How far the sand covers (assigned, estimated delivered or actual OMMA) and the actual stage vs plan. The stage the frac crew reports is logged here: the whole queue re-anchors to it. |
-| **Plan** | Loads per day, trucks required vs plan, drivers needed per shift, day, hour and stage with their turn rate, and the design editor (segments, lbs per stage, pace, prefill, POs, final counts %, driver hours per shift, carriers, schedule). Saving applies to all dispatch. |
+| **Plan** | Loads per day, trucks required vs plan, drivers needed per shift, day, hour and stage with their turn rate, the frac crew's stage stats PDF (lbs per sand and stage times, actual vs design) and the design editor (segments, lbs per stage, pace, prefill, POs, final counts %, driver hours per shift, carriers, schedule). Saving applies to all dispatch. |
 | **Mines** | Payload, load, transit and on-location times per mine, the PO of each sand, and the upload of the OMMA loads export (.xls, .xlsx or .csv). |
 
 Global filters (sand and carrier) and the unit (loads, lbs or tons) apply to every view. Clicking a bar, doughnut slice or card filters the board; clicking a legend item toggles that layer.
@@ -63,6 +63,15 @@ Global filters (sand and carrier) and the unit (loads, lbs or tons) apply to eve
 - The bar switches between **Overall** and **By sand**; clicking a sand filters the queue and hovering shows its numbers and PO.
 - Keyboard: **N** next load · **Space / Enter** check · **↑ ↓** move between loads · **I** detail · **/** search · **?** shortcuts.
 
+### Stage stats PDF (Plan)
+
+The frac crew's STATISTICS sheet, exported as PDF, goes in **Plan → Stage stats from the frac crew** (drag it or tap to choose it).
+
+- The app reads each stage's start and end and the lbs of each sand from the note on its "Used Pounds" cell (`110,000 lbs - 20/40`, `11,000 lbs - 100 mesh`).
+- Before anything changes, the preview shows what it read and what would change: loads needed per sand, lbs per stage and pace for the stages left, the next load's assign-by time and the well's end. It also lists anything worth checking: a total that does not match its sands, a stage with no end time, a sand outside the design or another well in the title.
+- **Apply and recalculate** applies it for all dispatch; the notice has **Undo**. Each new PDF updates the stages it carries; **Replace all** keeps only the new file's stages. **Clear stage stats** goes back to the design.
+- Two charts compare actual vs design: sand per stage, with a running total vs the design, and stage time (transition + pumping) against the design. Clicking a stage opens its detail.
+
 ## How it calculates
 
 - **Loads per sand** = design lbs ÷ average payload of its mine (from the OMMA export), rounded up.
@@ -73,7 +82,8 @@ Global filters (sand and carrier) and the unit (loads, lbs or tons) apply to eve
 - **Prefill**: the 36 prefill loads are spread evenly between the prefill start and end.
 - **Queue statuses**: *Scheduled*, *Assigned* and *Overdue* (the stage already needed it and it is still unassigned).
 - **PO**: the one set in Plan; if empty, the one from the latest OMMA export for that sand.
-- **Calendar**: with no reports it uses the frac start and the design pace; from the first stage report on it re-anchors to the actual stage.
+- **Calendar**: with no reports it uses the frac start and the design pace; from the first stage report or stats PDF on it re-anchors to the actual stage, and every known stage end pins it. The stats PDF wins over a report of the same stage.
+- **Stage stats (design + actual)**: a pumped stage counts what the crew pumped of each sand; a stage whose note is missing has its total split like the design. The stages left in each design segment take, per sand, the average of the design and that segment's pumped stages, where the design counts as one stage: (design + Σ pumped) ÷ (1 + stages pumped). The first pumped stage weighs as much as the design and each one after it pulls the forecast toward what the crew really pumps, so the total converges on the sand the well takes. Stages 31–105 keep their design until they start. Stage time works the same way, end to end (transition + pumping), and sets the pace of the stages left. Loads needed, their order, trucks and drivers all follow.
 - **Trucks required** = loads/day ÷ loads per truck per day (2 for Iron Oak, from the plan; 20/40 is estimated with the IronHorse cycle).
 - **Drivers and turn rate**: a driver works one 12 h shift a day that can stretch to 14 h (both editable in Plan), and a load keeps a driver for its full load time, assigned → delivered at its mine (the same time the queue uses). Any driver can take any trip, so a shift needs its loads' driver-hours ÷ 14 h, rounded up. A load counts in the shift where it is half done. Drivers per day = day shift + night shift; turn rate = loads per driver per day. By hour: drivers on a load. By stage: loads and driver-hours per stage, the drivers that hold each segment's pace and, with a driver plan per segment (the client's 20 per shift for stages 31–105), the gap and the pace that plan holds.
 
@@ -95,13 +105,14 @@ All of them change in **Plan → Well design** and apply to all dispatch:
 
 - The repository is **public**: never upload raw exports, they carry driver names. `.gitignore` blocks `.xls`, `.xlsx` and `.csv`. The POs of this well are part of the starting design (`public/assets/js/seed.js`).
 - When an export is uploaded, the app keeps only what the calculation and the queue use: load and ticket number, PO, product, mine, miles, truck, weight, times, dates, well and carrier. **It never keeps driver names.**
+- From the stage stats PDF it keeps only the stage number, its start and end, and the lbs of each sand. The PDF itself is not stored, and `.gitignore` blocks `.pdf`.
 - Anyone with the Netlify URL can view and check loads off. Do not share the URL outside dispatch.
 
 ## Development
 
 ```bash
 npm install
-npm test            # engine, parser, reducer and function (43 tests)
+npm test            # engine, parsers, reducer and function (49 tests)
 npx netlify dev     # app + function at http://localhost:8888
 ```
 
@@ -110,6 +121,8 @@ public/                 static site (index.html, assets/css, assets/js, fonts, i
   assets/js/engine.js   engine: design → slots, cadence, coverage, trucks, drivers, final counts
   assets/js/reducer.js  shared operations (used by the browser and by the function)
   assets/js/parser.js   OMMA export reader (.xls HTML, .xlsx, .csv)
+  assets/js/stagestats.js  frac crew stage stats PDF reader (positioned text → stages, lbs per sand)
+  assets/js/vendor/     Chart.js, SheetJS and pdf.js 6.3.289 legacy build (Mozilla, Apache-2.0), the last two loaded only when a file is chosen
   assets/js/store.js    sync with /api/state, offline queue
   assets/js/seed.js     starting design, starting check marks and the revision patch
   assets/js/app.js      interface: 5 views, charts, filters, queue interactions

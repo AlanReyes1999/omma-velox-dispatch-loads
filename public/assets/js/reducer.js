@@ -8,9 +8,9 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const MAX_LOG = 300, MAX_OPIDS = 600, MAX_STAGE = 600, MAX_LOADS = 4000;
+  const MAX_LOG = 300, MAX_OPIDS = 600, MAX_STAGE = 600, MAX_LOADS = 4000, MAX_ACTUAL = 2000;
   /* operations that count as someone's work (used to decide whether a starting point may replace state) */
-  const USER_OPS = ['asg', 'unasg', 'setc', 'bulk', 'unbulk', 'stage', 'stageDel', 'cfg', 'omma', 'ommaClear', 'resetAsg', 'fc', 'fcClear'];
+  const USER_OPS = ['asg', 'unasg', 'setc', 'bulk', 'unbulk', 'stage', 'stageDel', 'cfg', 'omma', 'ommaClear', 'resetAsg', 'fc', 'fcClear', 'actual', 'actualClear'];
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function nowISO(t) { return new Date(t == null ? Date.now() : t).toISOString(); }
@@ -23,7 +23,7 @@
   const BAD_KEY = /^(__proto__|constructor|prototype)$/;
 
   function emptyState() {
-    return { schema: 1, v: 0, config: null, asg: {}, ord: 0, stage: [], fc: null, omma: { loads: [], meta: null }, log: [], opIds: [], updatedAt: null };
+    return { schema: 1, v: 0, config: null, asg: {}, ord: 0, stage: [], fc: null, omma: { loads: [], meta: null }, actual: null, log: [], opIds: [], updatedAt: null };
   }
   /* has anyone worked since the last full starting point was loaded? A patch keeps everyone's work,
      so it does not start the count again: work from before a patch still counts. */
@@ -82,6 +82,26 @@
     return o.s ? o : null;
   }
 
+  /* Frac crew stage stats (the stats PDF): stage number, start and end, and the lbs pumped of each
+     sand. Nothing else is kept, whatever a client sends. Times are epoch ms. */
+  const T_MIN = Date.UTC(2020, 0, 1), T_MAX = Date.UTC(2100, 0, 1);
+  const epochOf = v => (typeof v === 'number' && isFinite(v) && v >= T_MIN && v <= T_MAX) ? Math.round(v) : null;
+  function cleanStage(r) {
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
+    const n = Math.round(+r.n);
+    if (!(n >= 1 && n <= 2000)) return null;
+    const o = { n, s: epochOf(r.s), e: epochOf(r.e), lbs: null, tot: null, src: str(r.src, 8) };
+    if (o.s != null && o.e != null && o.e < o.s) o.s = null;
+    if (r.lbs && typeof r.lbs === 'object' && !Array.isArray(r.lbs)) {
+      const l = {};
+      Object.keys(r.lbs).slice(0, 12).forEach(k => { const v = +r.lbs[k]; if (ID_RE.test(k) && !BAD_KEY.test(k) && r.lbs[k] != null && isFinite(v) && v >= 0 && v <= 5e6) l[k] = Math.round(v); });
+      if (Object.keys(l).length) o.lbs = l;
+    }
+    const t = +r.tot;
+    if (r.tot != null && isFinite(t) && t >= 0 && t <= 1e7) o.tot = Math.round(t);
+    return o;
+  }
+
   /* One field of a seed patch: it only changes when it still holds the old value (`from`),
      so whatever dispatch already edited is left alone. */
   function valueAt(roots, path) {
@@ -123,6 +143,7 @@
     state.asg = state.asg || {};
     state.stage = state.stage || [];
     state.omma = state.omma || { loads: [], meta: null };
+    if (state.actual === undefined) state.actual = null;
     state.log = state.log || [];
     state.opIds = state.opIds || [];
     if (state.fc === undefined) state.fc = null;
@@ -241,6 +262,27 @@
         case 'ommaClear':
           state.omma = { loads: [], meta: null };
           pushLog(state, { t, type: 'ommaClear', by });
+          break;
+        case 'actual': {
+          /* stage stats: update the stages in the file (merge) or keep only them (replace).
+             A replace with no stages clears them (the undo of a first upload). */
+          const incoming = (Array.isArray(op.stages) ? op.stages : []).slice(0, MAX_ACTUAL).map(cleanStage).filter(Boolean);
+          const replace = op.mode === 'replace';
+          if (!incoming.length && !replace) { ok = false; break; }
+          const map = new Map();
+          if (!replace && state.actual && Array.isArray(state.actual.stages)) state.actual.stages.forEach(r => { if (r && r.n != null) map.set(r.n, r); });
+          incoming.forEach(r => map.set(r.n, r));
+          const stages = Array.from(map.values()).sort((a, b) => a.n - b.n).slice(0, MAX_ACTUAL);
+          const m = isObj(op.meta) ? op.meta : {};
+          const mAt = op.undo ? epochOf(m.at) : null;
+          state.actual = stages.length ? { stages, meta: { file: str(m.file, 200), title: str(m.title, 120), at: mAt || Date.parse(t) || Date.now(), by: op.undo && m.by != null ? str(m.by, 24) : by, n: incoming.length } } : null;
+          pushLog(state, Object.assign({ t, type: 'actual', n: incoming.length, total: stages.length, by, txt: str(m.file, 90) }, op.undo ? { undo: 1 } : {}));
+          break;
+        }
+        case 'actualClear':
+          if (!state.actual) { ok = false; break; }
+          pushLog(state, { t, type: 'actualClear', n: (state.actual.stages || []).length, by });
+          state.actual = null;
           break;
         case 'resetAsg':
           pushLog(state, { t, type: 'resetAsg', n: Object.keys(state.asg).length, by });

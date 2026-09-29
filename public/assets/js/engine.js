@@ -274,8 +274,35 @@
     return P;
   }
 
+  /* ============================== actual stages (frac crew stats PDF) ==============================
+     Per stage: start, end and the lbs pumped of each sand. Pumped stages use what was pumped. The
+     stages still to pump use, per segment and per sand, a running average where the design counts as
+     DESIGN_WEIGHT stages: (design + Σ pumped) ÷ (1 + stages pumped). The first pumped stage weighs the
+     same as the design and every stage after it pulls the forecast toward what the crew really pumps,
+     so the total converges on the sand the well actually takes. A segment with nothing pumped yet keeps
+     its design. Stage time works the same way, end to end (transition + pumping). */
+  const DESIGN_WEIGHT = 1;
+  const MAX_CYCLE = DAY;          // more than a day between two stages is a shutdown, not the pace
+  function actualStages(st) {
+    const a = st && st.actual;
+    const map = new Map();
+    const ep = v => (typeof v === 'number' && isFinite(v) && v > 1e12) ? v : null;
+    (a && Array.isArray(a.stages) ? a.stages : []).forEach(r => {
+      if (!r || typeof r !== 'object') return;
+      const n = Math.round(+r.n);
+      if (!(n >= 1)) return;
+      const lbs = r.lbs && typeof r.lbs === 'object' && !Array.isArray(r.lbs) ? r.lbs : null;
+      let start = ep(r.s);
+      const end = ep(r.e);
+      if (start != null && end != null && end < start) start = null;
+      map.set(n, { n, start, end, lbs, tot: r.tot != null && isFinite(+r.tot) ? +r.tot : null, src: String(r.src || '') });
+    });
+    return Array.from(map.values()).sort((x, y) => x.n - y.n);
+  }
+
   /* ============================== well design ============================== */
-  function stageTable(cfg) {
+  /* act (optional): actualStages(). Without it the table is the pure design. */
+  function stageTable(cfg, act) {
     const N = Math.max(1, Math.round(+(cfg.job && cfg.job.totalStages) || 0));
     const ids = cfg.sands.map(s => s.id);
     const d = {}, prefix = {}, R = {};
@@ -301,12 +328,66 @@
     for (let j = 1; j <= N; j++) {
       if (!(pace[j] > 0)) { pace[j] = last || 19; } else last = pace[j];
     }
+    /* design as drawn (dd, Rd) and stage time at the design pace */
+    const dd = {}, Rd = {};
+    ids.forEach(s => { dd[s] = Float64Array.from(d[s]); let t = 0; for (let j = 1; j <= N; j++) t += dd[s][j]; Rd[s] = t; });
+    const dur = new Float64Array(N + 1);
+    for (let j = 1; j <= N; j++) dur[j] = DAY / pace[j];
+    let actOut = null;
+    const A = new Map();
+    (act || []).forEach(r => { if (r && r.n >= 1 && r.n <= N) A.set(r.n, r); });
+    if (A.size) {
+      const pumped = new Uint8Array(N + 1);
+      const cyc = new Float64Array(N + 1).fill(NaN);      // actual end-to-end time of each stage (ms)
+      A.forEach((r, j) => {
+        if (r.lbs) pumped[j] = 1;
+        const p = A.get(j - 1);
+        if (r.end != null && p && p.end != null) cyc[j] = r.end - p.end;
+      });
+      const seg = [];
+      (cfg.segments || []).forEach((sg, i) => {
+        const a = Math.max(1, Math.round(+sg.from)), b = Math.min(N, Math.round(+sg.to));
+        if (!(a <= b)) return;
+        const des = {}, sum = {};
+        ids.forEach(s => { des[s] = Math.max(0, +((sg.lbs || {})[s]) || 0); sum[s] = 0; });
+        let n = 0, cn = 0, cs = 0, out = 0;
+        for (let j = a; j <= b; j++) {
+          const r = A.get(j);
+          if (pumped[j]) { n++; ids.forEach(s => { sum[s] += Math.max(0, +r.lbs[s] || 0); }); }
+          const c = cyc[j];
+          if (c > 0 && c <= MAX_CYCLE) { cn++; cs += c; } else if (isFinite(c)) out++;
+        }
+        const K = DESIGN_WEIGHT, fc = {}, avg = {};
+        ids.forEach(s => { fc[s] = (K * des[s] + sum[s]) / (K + n); avg[s] = n ? sum[s] / n : null; });
+        const dCyc = DAY / (+sg.pace > 0 ? +sg.pace : 19);
+        const fCyc = (K * dCyc + cs) / (K + cn);
+        for (let j = a; j <= b; j++) {
+          if (segOf[j] !== i) continue;
+          const r = A.get(j);
+          ids.forEach(s => { d[s][j] = pumped[j] ? Math.max(0, +r.lbs[s] || 0) : fc[s]; });
+          dur[j] = fCyc;
+        }
+        seg[i] = { i, from: a, to: b, stages: b - a + 1, n, sum, design: des, avg, fc, cycN: cn, cycSum: cs, cycOut: out,
+          designCycle: dCyc, fcCycle: fCyc, actCycle: cn ? cs / cn : null, designPace: DAY / dCyc, fcPace: DAY / fCyc, on: n > 0 || cn > 0 };
+      });
+      /* the calendar runs on each stage's real time: end to end, and for stage 1 its own pumping time,
+         so "stage 0" ends when stage 1 started */
+      A.forEach((r, j) => {
+        if (cyc[j] > 0) dur[j] = cyc[j];
+        else if (j === 1 && r.start != null && r.end != null && r.end > r.start) dur[j] = r.end - r.start;
+      });
+      const ends = [];
+      let last = null, nP = 0;
+      A.forEach((r, j) => { if (r.end != null) ends.push({ n: j, t: r.end }); if (pumped[j]) { nP++; if (!last || j > last.n) last = r; } });
+      ends.sort((x, y) => x.n - y.n);
+      actOut = { A, pumped, cyc, seg, ends, n: nP, last, weight: DESIGN_WEIGHT };
+    }
     ids.forEach(s => {
       const P = new Float64Array(N + 1);
       for (let j = 1; j <= N; j++) P[j] = P[j - 1] + d[s][j];
       prefix[s] = P; R[s] = P[N];
     });
-    return { N, ids, d, pace, prefix, R, segOf, issues };
+    return { N, ids, d, dd, pace, dur, prefix, R, Rd, segOf, issues, act: actOut };
   }
   function compactRanges(a) {
     const out = [];
@@ -331,36 +412,66 @@
   }
 
   /* Well calendar: stage boundaries B[k] (end of stage k). Anchored on the latest actual stage
-     report; with no reports, on the planned frac start. */
+     (a report logged by dispatch or a stage end from the stats PDF); with none, on the planned frac
+     start. Every earlier known stage end pins the calendar too, and the stages between two of them
+     share the time in proportion to their expected length. The stats PDF wins over a report of the
+     same stage. Forward from the anchor: the stage times of tb.dur (design, or design + actual). */
   function schedule(tb, cfg, st, tz) {
     const N = tb.N;
     const dur = new Float64Array(N + 1);
-    for (let j = 1; j <= N; j++) dur[j] = DAY / tb.pace[j];
+    for (let j = 1; j <= N; j++) dur[j] = tb.dur ? tb.dur[j] : DAY / tb.pace[j];
     const fracStart = parseWall(cfg.schedule && cfg.schedule.fracStart, tz);
+    const pdf = tb.act ? tb.act.ends : [];
+    const inPdf = new Set(pdf.map(r => r.n));
     const reports = (st.stage || [])
-      .map(r => ({ id: r.id, n: Math.round(+r.n), t: typeof r.t === 'number' ? r.t : Date.parse(r.t), by: r.by || '' }))
+      .map(r => ({ id: r.id, n: Math.round(+r.n), t: typeof r.t === 'number' ? r.t : Date.parse(r.t), by: r.by || '', src: 'report' }))
+      .filter(r => !inPdf.has(r.n))
+      .concat(pdf.map(r => ({ id: 'pdf-' + r.n, n: r.n, t: r.t, by: '', src: 'pdf' })))
       .filter(r => r.n >= 0 && r.n <= N && isFinite(r.t))
       .sort((a, b) => a.t - b.t || a.n - b.n);
     const last = reports[reports.length - 1];
     const anchor = last ? { k: last.n, t: last.t, src: 'real' } : { k: 0, t: fracStart, src: 'plan' };
+    /* known points, from the latest back: each one earlier in both stage and time (a report that
+       contradicts a later one is left out, the latest wins) */
+    const pts = [];
+    for (let i = reports.length - 1; i >= 0; i--) {
+      const r = reports[i], q = pts[pts.length - 1];
+      if (!q || (r.n < q.n && r.t < q.t)) pts.push(r);
+    }
+    pts.reverse();
     const B = new Float64Array(N + 1);
-    B[anchor.k] = anchor.t;
-    for (let k = anchor.k + 1; k <= N; k++) B[k] = B[k - 1] + dur[k];
-    for (let k = anchor.k - 1; k >= 0; k--) B[k] = B[k + 1] - dur[k + 1];
+    if (!pts.length) {
+      B[0] = anchor.t;
+      for (let k = 1; k <= N; k++) B[k] = B[k - 1] + dur[k];
+    } else {
+      const p0 = pts[0], p1 = pts[pts.length - 1];
+      B[p1.n] = p1.t;
+      for (let k = p1.n + 1; k <= N; k++) B[k] = B[k - 1] + dur[k];
+      B[p0.n] = p0.t;
+      for (let k = p0.n - 1; k >= 0; k--) B[k] = B[k + 1] - dur[k + 1];
+      for (let i = 0; i + 1 < pts.length; i++) {
+        const a = pts[i], b = pts[i + 1];
+        let tot = 0, acc = 0;
+        for (let j = a.n + 1; j <= b.n; j++) tot += dur[j];
+        for (let k = a.n + 1; k < b.n; k++) { acc += dur[k]; B[k] = a.t + (b.t - a.t) * (tot > 0 ? acc / tot : (k - a.n) / (b.n - a.n)); }
+        B[a.n] = a.t; B[b.n] = b.t;
+      }
+    }
+    const span = k => { const v = B[k + 1] - B[k]; return v > 0 ? v : dur[k + 1]; };
     function T(x) {
       if (!(x > 0)) return B[0] + Math.min(0, x || 0) * dur[1];
       if (x >= N) return B[N];
       const k = Math.floor(x);
-      return B[k] + (x - k) * dur[k + 1];
+      return B[k] + (x - k) * span(k);
     }
     function X(t) {
       if (t <= B[0]) return (t - B[0]) / dur[1];
       if (t >= B[N]) return N;
       let lo = 0, hi = N;
       while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (B[mid] <= t) lo = mid; else hi = mid; }
-      return lo + (t - B[lo]) / dur[lo + 1];
+      return lo + (t - B[lo]) / span(lo);
     }
-    return { B, dur, T, X, fracStart, anchor, reports };
+    return { B, dur, T, X, fracStart, anchor, reports, pts };
   }
 
   /* ============================== full model ============================== */
@@ -368,7 +479,9 @@
     now = now == null ? Date.now() : now;
     st = st || {};
     const tz = cfg.tz || 'America/Mexico_City';
-    const tb = stageTable(cfg);
+    const act = actualStages(st);
+    const tb = stageTable(cfg, act);
+    const tbd = tb.act ? stageTable(cfg) : tb;          // the design alone: the "plan" lines and the comparisons
     const N = tb.N;
     const sc = schedule(tb, cfg, st, tz);
     const loads = (st.omma && st.omma.loads) || [];
@@ -477,6 +590,13 @@
         slots.push(slot);
       }
       const neededSlots = list.filter(x => x.needed);
+      /* loads the design alone would take, with the same weights (actual deliveries, then payload) */
+      let nDesign = neededSlots.length;
+      if (tb.act) {
+        let c = 0, k = 0;
+        while (c < tbd.R[s] - 0.5 && k < 20000) { c += k < list.length ? list[k].w : pr.payload; k++; }
+        nDesign = k;
+      }
       const assigned = list.filter(x => x.asg);
       const asgLbs = assigned.reduce((p, x) => p + x.w, 0);
       const ommaLbs = del.reduce((p, l) => p + (l.w || 0), 0);
@@ -491,7 +611,7 @@
       const freeK = neededSlots.filter(x => !x.asg).map(x => x.id);
       const reconcile = unmatched.map((l, i) => freeK[i] ? { slot: freeK[i], c: trackedId, t: l.a || l.d, load: l } : null).filter(Boolean);
       sands[s] = {
-        id: s, label: sd.label, mine: sd.mine, params: pr, R, prefillN,
+        id: s, label: sd.label, mine: sd.mine, params: pr, R, Rd: tbd.R[s], nDesign, prefillN,
         nNeeded: neededSlots.length, nAssigned: assigned.length,
         nAssignedNeeded: neededSlots.filter(x => x.asg).length,
         nExtra: list.filter(x => !x.needed).length,
@@ -534,6 +654,8 @@
     const kpi = {
       reqLoads: needed.length,
       reqLbs: tb.ids.reduce((p, s) => p + tb.R[s], 0),
+      reqLoadsDesign: tb.ids.reduce((p, s) => p + sands[s].nDesign, 0),
+      reqLbsDesign: tb.ids.reduce((p, s) => p + tbd.R[s], 0),
       asgLoads: slots.filter(x => x.asg).length,
       asgNeeded: needed.filter(x => x.asg).length,
       asgLbs: slots.filter(x => x.asg).reduce((p, x) => p + x.w, 0),
@@ -588,14 +710,21 @@
 
     /* ---------- plan per segment: loads/day, trucks, sustainable pace ----------
        Sustainable pace = what the planned trucks can hold: trucks × loads/truck/day × payload ÷ lbs per stage,
-       and the shortest sand rules. With no truck plan for a sand that is used, nothing is invented: null. */
+       and the shortest sand rules. With no truck plan for a sand that is used, nothing is invented: null.
+       With stage stats the segment runs on its forecast (design averaged with what was pumped). */
     const segPlans = (cfg.segments || []).map((sg, i) => {
       const per = {};
       let sustain = Infinity, limiting = null, complete = true;
       const tk = sg.trucks || {};
+      const fs = tb.act && tb.act.seg[i] && tb.act.seg[i].on ? tb.act.seg[i] : null;
+      const pace = fs ? fs.fcPace : +sg.pace;
+      const a = Math.max(1, Math.round(+sg.from)), b = Math.min(N, Math.round(+sg.to));
       tb.ids.forEach(s => {
-        const lbs = Math.max(0, +((sg.lbs || {})[s]) || 0), pr = P[s];
-        const lpd = sg.pace * lbs / pr.payload;
+        const dl = Math.max(0, +((sg.lbs || {})[s]) || 0), pr = P[s];
+        const lbs = fs ? fs.fc[s] : dl;
+        let segLbs = 0;
+        for (let j = a; j <= b; j++) segLbs += tb.d[s][j];
+        const lpd = pace * lbs / pr.payload;
         const trucksNeeded = lpd / pr.lptd;
         const planned = (tk[s] != null && tk[s] !== '' && isFinite(+tk[s])) ? Math.max(0, +tk[s]) : null;
         const cap = planned != null ? planned * pr.lptd : null;
@@ -605,13 +734,13 @@
           else sus = cap * pr.payload / lbs;
         }
         if (sus < sustain) { sustain = sus; limiting = s; }
-        per[s] = { lbs, loadsPerDay: lpd, trucksNeeded, trucksPlanned: planned, capLoadsDay: cap,
+        per[s] = { lbs, designLbs: dl, loadsPerDay: lpd, trucksNeeded, trucksPlanned: planned, capLoadsDay: cap,
           sustainPace: isFinite(sus) ? sus : null, everyMin: lpd > 0 ? 1440 / lpd : null,
-          lbsTotal: lbs * (sg.to - sg.from + 1), gapTrucks: planned != null ? planned - trucksNeeded : null };
+          lbsTotal: segLbs, gapTrucks: planned != null ? planned - trucksNeeded : null };
       });
-      return { i, from: sg.from, to: sg.to, pace: sg.pace, stages: sg.to - sg.from + 1, per,
+      return { i, from: sg.from, to: sg.to, pace, designPace: +sg.pace, fc: !!fs, stages: sg.to - sg.from + 1, per,
         sustainPace: complete && isFinite(sustain) ? sustain : null, partialSustain: isFinite(sustain) ? sustain : null,
-        limiting, complete, days: (sg.to - sg.from + 1) / sg.pace };
+        limiting, complete, days: (sg.to - sg.from + 1) / pace };
     });
 
     /* ---------- daily series (dispatch) ---------- */
@@ -632,7 +761,7 @@
     });
 
     return {
-      cfg, now, tz, N, tb, sc, stats, params: P, sands, slots, kpi, well, segPlans, days, byCarrier,
+      cfg, now, tz, N, tb, tbd, sc, stats, params: P, sands, slots, kpi, well, segPlans, days, byCarrier,
       jobLoads, wellLoads, countFrom, warnings, carrierById, trackedId
     };
   }
@@ -785,7 +914,7 @@
       const need = dh * sp.pace / 2 / H;                  // drivers on each 12 h shift at the design pace
       const onShift = Math.ceil(need - 1e-9), perDay = 2 * onShift, loadsDay = lps * sp.pace;
       const plan = segDriversPlan(segs0[i]);
-      return { from: sp.from, to: sp.to, pace: sp.pace, stageMin: sp.pace > 0 ? 1440 / sp.pace : null, perStage,
+      return { from: sp.from, to: sp.to, pace: sp.pace, designPace: sp.designPace, fc: sp.fc, stageMin: sp.pace > 0 ? 1440 / sp.pace : null, perStage,
         loadsPerStage: lps, driverHoursPerStage: dh, loadsPerDay: loadsDay, loadsPerHour: loadsDay / 24,
         driving: dh * sp.pace / 24, need, onShift, perDay, tr: perDay ? loadsDay / perDay : null,
         plan, gap: plan != null ? plan - onShift : null, planHolds: plan != null && dh > 0 ? plan * 2 * H / dh : null };
@@ -806,7 +935,7 @@
     wallParts, tzOffset, wallToEpoch, parseWall, dayKey, toWallString, shiftOf,
     normText, normProduct, normMine, parseDuration,
     mean, median, summary, computeStats, resolveParams,
-    stageTable, posOf, schedule, build, cumulativeSeries, fmtDur, compactRanges,
-    driverHours, driverPlan
+    stageTable, actualStages, posOf, schedule, build, cumulativeSeries, fmtDur, compactRanges,
+    driverHours, driverPlan, DESIGN_WEIGHT
   };
 });

@@ -179,7 +179,7 @@
           </article>
           <article class="gcard panel clip a-sky" id="pStage">
             <div class="ph"><span class="pn">02</span><h3>Actual stage vs plan</h3><span class="pbadge" id="stageBadge">—</span></div>
-            <p class="pdesc">Dotted line: the stage due per the design pace. Dots: stages reported by the frac crew.</p>
+            <p class="pdesc">Dotted line: the stage due per the design pace. Dots: stages reported by the frac crew or read from the stats PDF.</p>
             <div class="ch"><canvas id="av_stage"></canvas></div>
           </article>
         </div>
@@ -204,7 +204,7 @@
       <!-- ========================= PLAN ========================= -->
       <section class="view" data-pane="plan" id="v-plan" aria-labelledby="h-plan">
         <div class="vhead">
-          <div><div class="eyebrow">04 · Design and plan</div><h2 id="h-plan">Well design, loads per day, trucks and drivers</h2></div>
+          <div><div class="eyebrow">04 · Design and plan</div><h2 id="h-plan">Well design and actuals, loads per day, trucks and drivers</h2></div>
           <div class="vmeta" id="plMeta"></div>
         </div>
         <div class="sandtotals" id="sandTotals"></div>
@@ -241,8 +241,33 @@
             <div class="tscroll tablewrap"><table class="ltable dstage" id="drvStageTbl"></table></div>
           </article>
         </div>
+        <div class="sandtotals actkpis" id="actKpis"></div>
+        <article class="gcard panel a-teal" id="pActual">
+          <div class="ph"><span class="pn">06</span><h3>Stage stats from the frac crew</h3><span class="pbadge" id="actBadge">—</span></div>
+          <div class="upload">
+            <label class="drop" id="actDrop">
+              <input type="file" id="actIn" accept=".pdf,application/pdf">
+              <span class="drop-ic"></span>
+              <span class="drop-t">Drag the stats PDF here or tap to choose it</span>
+              <span class="drop-s">The STATISTICS sheet as PDF · the app reads each stage's start and end and the lbs of each sand from its notes</span>
+            </label>
+            <div class="upprev" id="actPrev"></div>
+          </div>
+        </article>
+        <div class="grid g2w">
+          <article class="gcard panel clip a-amber" id="pActLbs">
+            <div class="ph"><span class="pn">07</span><h3>Sand per stage · actual vs design</h3><span class="pbadge" id="actLbsBadge">—</span></div>
+            <p class="pdesc">Solid bars: what the frac crew pumped. Light bars: the stages left, the design averaged with what is being pumped. Dashed: the design. Red: running total vs the design.</p>
+            <div class="ch ch-l"><canvas id="pl_actlbs"></canvas></div>
+          </article>
+          <article class="gcard panel clip a-sky" id="pActTime">
+            <div class="ph"><span class="pn">08</span><h3>Stage time · actual vs design</h3><span class="pbadge" id="actTimeBadge">—</span></div>
+            <p class="pdesc">Each pumped stage end to end: transition from the previous stage, then pumping. Dashed: the design. Line: the forecast for the stages left, updated after each stage.</p>
+            <div class="ch ch-l"><canvas id="pl_acttime"></canvas></div>
+          </article>
+        </div>
         <article class="gcard panel a-lav" id="pDesign">
-          <div class="ph"><span class="pn">06</span><h3>Well design</h3><span class="pbadge" id="designBadge">—</span></div>
+          <div class="ph"><span class="pn">09</span><h3>Well design</h3><span class="pbadge" id="designBadge">—</span></div>
           <div id="designForm"></div>
         </article>
       </section>
@@ -305,6 +330,7 @@
 <script src="assets/js/engine.js"></script>
 <script src="assets/js/reducer.js"></script>
 <script src="assets/js/parser.js"></script>
+<script src="assets/js/stagestats.js"></script>
 <script src="assets/js/store.js"></script>
 <script src="assets/js/viz.js"></script>
 <script src="assets/js/app.js"></script>

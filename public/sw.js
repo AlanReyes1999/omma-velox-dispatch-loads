@@ -3,12 +3,12 @@
    · Code and page: network first (with a network the newest version always arrives), cache as backup.
    · Fonts, icons and libraries: cache first (they do not change).
    · The shared state (/api/state) never goes through here: it always goes to the server. */
-const CACHE = 'ovd-shell-v5';
+const CACHE = 'ovd-shell-v6';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'assets/css/fonts.css', 'assets/css/tokens-pastel.css', 'assets/css/components-cards.css', 'assets/css/motion.css', 'assets/css/app.css',
   'assets/js/vendor/chart.umd.min.js', 'assets/js/chartkit.js', 'assets/js/ui-kit.js', 'assets/js/seed.js', 'assets/js/engine.js',
-  'assets/js/reducer.js', 'assets/js/parser.js', 'assets/js/store.js', 'assets/js/viz.js', 'assets/js/app.js',
+  'assets/js/reducer.js', 'assets/js/parser.js', 'assets/js/stagestats.js', 'assets/js/store.js', 'assets/js/viz.js', 'assets/js/app.js',
   'assets/fonts/plus-jakarta-sans-latin.woff2', 'assets/fonts/manrope-latin.woff2', 'assets/fonts/jetbrains-mono-latin.woff2',
   'assets/img/logo-omma.svg', 'assets/img/icon.svg', 'assets/img/icon-192.png', 'assets/img/icon-512.png'
 ];
